@@ -1,43 +1,65 @@
 import { useEffect } from "react";
 import "./Game.css";
-import { BoxGeometry, DirectionalLight, Light, Mesh, MeshPhongMaterial, PerspectiveCamera, Scene, WebGLRenderer } from "three";
+import {
+  DataTexture,
+  Mesh,
+  MeshPhongMaterial,
+  MeshToonMaterial,
+  PerspectiveCamera,
+  PlaneGeometry,
+  PointLight,
+  RedFormat,
+  Scene,
+  SphereGeometry,
+  WebGLRenderer,
+} from "three";
+// @ts-ignore
+import { OrbitControls } from "three/addons/controls/OrbitControls";
 
 export const Game = () => {
   useEffect(init, []);
 
   return <canvas id="gameCanvas" />;
 };
-let initialized = false;
 const init = () => {
-  // if (initialized) return;
-  initialized = true;
   console.log("init");
   const canvas = document.querySelector("#gameCanvas") as HTMLCanvasElement;
   const renderer = new WebGLRenderer({ antialias: true, canvas });
   const camera = new PerspectiveCamera(75, 2, 0.1, 10);
   camera.position.z = 2;
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.25;
 
   const scene = new Scene();
 
-  const geometry = new BoxGeometry(1, 1, 1);
-  const material = new MeshPhongMaterial({ color: 0x00ff00 });
-  const cube = new Mesh(geometry, material);
-  cube.rotation.x = 0.5;
-  scene.add(cube);
+  const geometry = new SphereGeometry(1, 100, 100);
+  const material = new MeshToonMaterial({ color: 0x44aa88, gradientMap: generateGradientMap() });
+  const sphere = new Mesh(geometry, material);
+  sphere.rotation.x = 0.5;
+  scene.add(sphere);
 
-  const light = new DirectionalLight(0xffffff, 1);
-  light.position.set(0, 0, 5);
+  const planeGeometry = new PlaneGeometry(3, 3);
+  const planeMaterial = new MeshPhongMaterial({ color: 0x44aa88 });
+  const plane = new Mesh(planeGeometry, planeMaterial);
+  plane.position.y = 0;
+  plane.position.z = -1;
+  plane.rotation.x = 0;
+  scene.add(plane);
+
+  const light = new PointLight(0xffffff, 20);
+  light.position.set(0, 0, 3);
   scene.add(light);
 
   let running = true;
   const animate = (time: number) => {
     if (!running) return;
     requestAnimationFrame(animate);
+    controls.update();
 
-    cube.rotation.y += 0.01;
-    cube.rotation.x = 0.5 + Math.sin(time / 1000) / 5;
-    cube.position.x = Math.sin(time / 700);
-    // camera.position.x = Math.sin(time / 700);
+    sphere.rotation.y += 0.01;
+    sphere.rotation.x = 0.5 + Math.sin(time / 1000) / 5;
+    sphere.position.x = Math.sin(time / 700);
 
     resizeRendererToDisplaySize(renderer, camera);
     renderer.render(scene, camera);
@@ -106,4 +128,15 @@ function hasDispose(object: any): object is { dispose: () => void } {
 
 function isMesh(object: any): object is Mesh {
   return object && object.isMesh;
+}
+
+function generateGradientMap() {
+  // Create a small 1D data texture for the gradient map (grayscale values)
+  const size = 3; // Two steps in the gradient
+  const data = new Uint8Array([80, 200, 255]); // Two luminance values for shading steps
+
+  // Create a DataTexture with LuminanceFormat
+  const gradientMap = new DataTexture(data, size, 1, RedFormat);
+  gradientMap.needsUpdate = true;
+  return gradientMap;
 }
