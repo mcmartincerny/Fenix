@@ -10,9 +10,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "^0.14.0",
     "@types/three": "^0.168.0",
+    "lil-gui": "^0.19.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "stats.js": "^0.17.0",
     "three": "^0.168.0"
   },
   "devDependencies": {

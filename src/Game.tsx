@@ -1,61 +1,146 @@
 import { useEffect } from "react";
 import "./Game.css";
 import {
-  DataTexture,
+  ACESFilmicToneMapping,
+  AgXToneMapping,
+  CineonToneMapping,
+  ColorSpace,
+  CustomToneMapping,
+  LinearToneMapping,
   Mesh,
-  MeshBasicMaterial,
-  MeshNormalMaterial,
   MeshPhongMaterial,
   MeshStandardMaterial,
   MeshToonMaterial,
+  NeutralToneMapping,
+  NoToneMapping,
   PerspectiveCamera,
   PlaneGeometry,
   PointLight,
-  RedFormat,
-  RGBAIntegerFormat,
-  RGBFormat,
-  RGBIntegerFormat,
-  RGFormat,
+  ReinhardToneMapping,
   Scene,
   SphereGeometry,
   WebGLRenderer,
 } from "three";
 // @ts-ignore
 import { OrbitControls } from "three/addons/controls/OrbitControls";
+import { Person } from "./objects/Person";
+import Stats from "stats.js";
+import { generateBricksMap, generateBricksTexture, generateGradientMap, generateGrassBumpMap } from "./texturesAndMaps/firstStuff";
+import RAPIER from "@dimforge/rapier3d-compat";
+import { RapierDebugRenderer } from "./Debug";
+import GUI from "lil-gui";
+import { BetterObject3D } from "./objects/BetterObject3D";
+import { setWorld } from "./Globals";
+import { PlayerController } from "./controllers/playerController";
+
+await RAPIER.init();
+
+const stats = new Stats();
 
 export const Game = () => {
   useEffect(init, []);
 
+  useEffect(() => {
+    stats.showPanel(0);
+    (stats.dom.children[1] as HTMLElement).style.display = "block";
+    document.body.appendChild(stats.dom);
+    return () => {
+      document.body.removeChild(stats.dom);
+    };
+  }, []);
+
   return <canvas id="gameCanvas" />;
 };
+
 const init = () => {
   console.log("init");
+  const gui = new GUI();
   const canvas = document.querySelector("#gameCanvas") as HTMLCanvasElement;
-  const renderer = new WebGLRenderer({ antialias: true, canvas });
+  const renderer = new WebGLRenderer({ antialias: true, canvas, alpha: true }); // TODO: settings
+  renderer.setPixelRatio(2); // TODO: settings
+  const toneMappingOptions = [
+    NoToneMapping,
+    LinearToneMapping,
+    ReinhardToneMapping,
+    CineonToneMapping,
+    ACESFilmicToneMapping,
+    AgXToneMapping,
+    NeutralToneMapping,
+    CustomToneMapping,
+  ];
+  let toneMappingIndex = 0;
+  document.addEventListener("keydown", (event) => {
+    // TODO: this preserves between rerenders
+    if (event.key === "m") {
+      toneMappingIndex = (toneMappingIndex + 1) % toneMappingOptions.length;
+      renderer.toneMapping = toneMappingOptions[toneMappingIndex];
+      console.log("Tone mapping set to", renderer.toneMapping);
+    }
+  });
+  renderer.outputColorSpace = "srgb" as ColorSpace;
+  const outputColorSpaces = ["srgb", "srgb-linear", "display-p3", "display-p3-linear"];
+  let outputColorSpaceIndex = 0;
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "c") {
+      outputColorSpaceIndex = (outputColorSpaceIndex + 1) % outputColorSpaces.length;
+      renderer.outputColorSpace = outputColorSpaces[outputColorSpaceIndex] as ColorSpace;
+      console.log("Output color space set to", outputColorSpaces[outputColorSpaceIndex]);
+    }
+  });
   const camera = new PerspectiveCamera(75, 2, 0.1, 100);
+  camera.up.set(0, 0, 1);
+  camera.position.z = 4;
+  camera.position.y = -5;
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.25;
-  camera.position.z = 4;
-  camera.position.y = -5;
-  controls.target.set(0, 3, 0);
+  controls.target.set(0, 3, 2);
+  controls.update();
 
   const scene = new Scene();
 
+  const world = new RAPIER.World({ x: 0.0, y: 0.0, z: -9.81 });
+  setWorld(world);
+
+  const rapierDebugRenderer = new RapierDebugRenderer(scene, world);
+  gui.add(rapierDebugRenderer, "enabled").name("Show physics debug");
+  const guiHelper = {
+    set gravity(value: number) {
+      world.gravity = { x: 0, y: 0, z: value };
+      scene.traverse((object) => (object as BetterObject3D).rigidBody?.wakeUp());
+    },
+    get gravity() {
+      return world.gravity.z;
+    },
+    slowMotion: 1,
+  };
+  gui.add(guiHelper, "gravity", -9.81, 9.81).name("Gravity");
+  gui.add(guiHelper, "slowMotion").min(1).max(10);
+
+  // const ambientLight = new AmbientLight(0xffffff, 0.1);
+  // scene.add(ambientLight);
   const geometry = new SphereGeometry(1, 100, 100);
   const material = new MeshToonMaterial({ color: 0x44aa88, gradientMap: generateGradientMap() });
   const sphere = new Mesh(geometry, material);
-  sphere.position.z = 1;
+  sphere.position.z = 3;
   sphere.position.y = 2;
   scene.add(sphere);
+  const sphereRigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0.0, 2.0, 3.0));
+  const sphereCollider = world.createCollider(RAPIER.ColliderDesc.ball(1.0).setTranslation(0.0, 0.0, 0.0), sphereRigidBody);
+  sphereCollider.setRestitution(0.5);
+  sphereCollider.setDensity(0.05);
 
-  const groundGeometry = new PlaneGeometry(10, 10, 99, 99);
+  const groundGeometry = new PlaneGeometry(10, 10, 199, 199);
   const groundMaterial = new MeshPhongMaterial({ color: 0x44aa88 });
   // groundMaterial.bumpMap = generateGrassBumpMap(100, 100);
-  groundMaterial.displacementMap = generateGrassBumpMap(100, 100);
+  groundMaterial.displacementMap = generateGrassBumpMap(200, 200, 120);
   const ground = new Mesh(groundGeometry, groundMaterial);
   ground.position.z = 0;
   scene.add(ground);
+  const groundRigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0.0, 0.0, 0));
+  groundRigidBody.userData = { name: "ground" };
+  const groundCollider = world.createCollider(RAPIER.ColliderDesc.cuboid(5, 5, 0.1).setTranslation(0.0, 0.0, 0.0), groundRigidBody);
+  groundCollider.setRestitution(1);
 
   const wallGeometry = new PlaneGeometry(6, 4, 99, 99);
   const wallMaterial = new MeshStandardMaterial();
@@ -72,22 +157,36 @@ const init = () => {
   wall.rotation.z = Math.PI;
   scene.add(wall);
 
-  const light = new PointLight(0xffffff, 20);
-  light.position.set(0, 0, 3);
+  const light = new PointLight(0xffffff, 35);
+  light.position.set(1, -2, 2);
   scene.add(light);
 
+  const person = new Person(new PlayerController());
+  person.position.z = 3;
+  scene.add(person);
+  person.init();
+
   let running = true;
+  let previousTime: number;
   const animate = (time: number) => {
     if (!running) return;
+    stats.begin();
     requestAnimationFrame(animate);
-    controls.update();
+    scene.traverse((object) => (object as BetterObject3D).beforeStep?.());
+    if (previousTime) {
+      const delta = time - previousTime;
+      world.timestep = delta / 1000 / guiHelper.slowMotion;
+    }
+    previousTime = time;
+    world.step();
+    sphere.position.copy(sphereRigidBody.translation());
 
-    sphere.rotation.y += 0.01;
-    sphere.rotation.x = 0.5 + Math.sin(time / 1000) / 5;
-    sphere.position.x = Math.sin(time / 700);
+    scene.traverse((object) => (object as BetterObject3D).step?.(time));
 
+    rapierDebugRenderer.update();
     resizeRendererToDisplaySize(renderer, camera);
     renderer.render(scene, camera);
+    stats.end();
   };
   animate(0);
 
@@ -96,6 +195,7 @@ const init = () => {
     previousAspectRatio = 0;
     destroySceneObjects(scene);
     renderer.dispose();
+    gui.destroy();
     console.log("cleanup complete");
   };
 };
@@ -153,103 +253,4 @@ function hasDispose(object: any): object is { dispose: () => void } {
 
 function isMesh(object: any): object is Mesh {
   return object && object.isMesh;
-}
-
-function generateGradientMap() {
-  // Create a small 1D data texture for the gradient map (grayscale values)
-  const size = 3; // Two steps in the gradient
-  const data = new Uint8Array([80, 200, 255]); // Two luminance values for shading steps
-
-  // Create a DataTexture with LuminanceFormat
-  const gradientMap = new DataTexture(data, size, 1, RedFormat);
-  gradientMap.needsUpdate = true;
-  return gradientMap;
-}
-
-function generateBumpMap(sizeX: number, sizeY: number, bumpFunction: (x: number, y: number, previousData: number[]) => number) {
-  const data = [];
-  for (let y = 0; y < sizeY; y++) {
-    for (let x = 0; x < sizeX; x++) {
-      const value = bumpFunction(x, y, data);
-      data.push(value);
-    }
-  }
-  const texture = new DataTexture(new Uint8Array(data), sizeX, sizeY, RedFormat);
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function generateTextureMap(sizeX: number, sizeY: number, textureFunction: (x: number, y: number) => [number, number, number]) {
-  const data: number[] = [];
-  for (let y = 0; y < sizeY; y++) {
-    for (let x = 0; x < sizeX; x++) {
-      const value = textureFunction(x, y);
-      data.push(...value, 255);
-    }
-  }
-  const texture = new DataTexture(new Uint8Array(data), sizeX, sizeY);
-  texture.needsUpdate = true;
-  return texture;
-}
-
-function generateGrassBumpMap(sizeX: number, sizeY: number, grassHeight = 255) {
-  return generateBumpMap(sizeX, sizeY, (x, y, data) => {
-    const currentIndex = y * sizeX + x;
-    let wasTallGrassPastFewIndexes = false;
-    for (let i = 1; i < Math.random() * 20 + 20; i++) {
-      if (data[currentIndex - i] > grassHeight / 2) {
-        wasTallGrassPastFewIndexes = true;
-        break;
-      }
-    }
-    let wasMiddleGrassPastFewIndexes = false;
-    for (let i = 1; i < 6; i++) {
-      if (data[currentIndex - i] > grassHeight / 4) {
-        wasMiddleGrassPastFewIndexes = true;
-        break;
-      }
-    }
-    const wasTallGrassUp =
-      data[currentIndex - sizeX] > grassHeight / 2 || data[currentIndex - sizeX - 1] > grassHeight / 2 || data[currentIndex - sizeX + 1] > grassHeight / 2;
-    const wasMiddleGrassUp =
-      data[currentIndex - sizeX] > grassHeight / 4 || data[currentIndex - sizeX - 1] > grassHeight / 4 || data[currentIndex - sizeX + 1] > grassHeight / 4;
-    const wasTallGrass = wasTallGrassPastFewIndexes || wasTallGrassUp;
-    const wasMiddleGrass = wasMiddleGrassPastFewIndexes || wasMiddleGrassUp;
-    let grass = wasTallGrass ? (wasMiddleGrass ? 0 : grassHeight / 2) : grassHeight;
-    grass = (Math.random() / 2 + 0.5) * grass;
-    return grass;
-  });
-}
-
-function generateBricksMap(sizeX: number, sizeY: number, brickDepth = 255, brickWidth = 12, brickHeight = 7, mortarWidth = 1) {
-  return generateBumpMap(sizeX, sizeY, (x, y) => {
-    const mortarVertical = y % (brickHeight + mortarWidth) < mortarWidth;
-    const oddRow = Math.floor(y / (brickHeight + mortarWidth)) % 2 === 1;
-    const mortarHorizontal = (oddRow ? x + Math.floor(brickWidth / 2) : x) % (brickWidth + mortarWidth) < mortarWidth;
-    const brick = !mortarVertical && !mortarHorizontal;
-    const beginningOfBrick = brick && (oddRow ? x + Math.floor(brickWidth / 2) : x) % (brickWidth + mortarWidth) === 1;
-    const endingOfBrick = brick && (oddRow ? x + Math.floor(brickWidth / 2) : x) % (brickWidth + mortarWidth) === brickWidth;
-    const mortarLineOnTop = (y - 1) % (brickHeight + mortarWidth) === 0;
-    const mortarLineOnBottom = (y + 1) % (brickHeight + mortarWidth) === 0;
-    // slight chance of missing a corner of brick
-    if ((beginningOfBrick || endingOfBrick) && (mortarLineOnTop || mortarLineOnBottom) && Math.random() < 0.1) {
-      return brickDepth / 2;
-    }
-    return brick ? (Math.random() / 8 + 0.75) * brickDepth : 0;
-  });
-}
-
-function generateBricksTexture(sizeX: number, sizeY: number, brickWidth = 12, brickHeight = 7, mortarWidth = 1) {
-  return generateTextureMap(sizeX, sizeY, (x, y) => {
-    const mortarVertical = y % (brickHeight + mortarWidth) < mortarWidth;
-    const oddRow = Math.floor(y / (brickHeight + mortarWidth)) % 2 === 1;
-    const mortarHorizontal = (oddRow ? x + Math.floor(brickWidth / 2) : x) % (brickWidth + mortarWidth) < mortarWidth;
-    const brick = !mortarVertical && !mortarHorizontal;
-
-    if (brick) {
-      return [40, 10, 5];
-    } else {
-      return [50, 50, 50];
-    }
-  });
 }
