@@ -11,8 +11,8 @@ function App() {
 
 export default App;
 
-window.onbeforeunload = (e: BeforeUnloadEvent) => {
-  e.preventDefault();
-  e.returnValue = "";
-  return "Are you sure you want to leave?";
-};
+// window.onbeforeunload = (e: BeforeUnloadEvent) => {
+//   e.preventDefault();
+//   e.returnValue = "";
+//   return "Are you sure you want to leave?";
+// };

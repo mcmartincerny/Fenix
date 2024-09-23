@@ -26,12 +26,13 @@ import { OrbitControls } from "three/addons/controls/OrbitControls";
 import { Person } from "./objects/Person";
 import Stats from "stats.js";
 import { generateBricksMap, generateBricksTexture, generateGradientMap, generateGrassBumpMap } from "./texturesAndMaps/firstStuff";
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER, { EventQueue } from "@dimforge/rapier3d-compat";
 import { RapierDebugRenderer } from "./Debug";
 import GUI from "lil-gui";
 import { BetterObject3D } from "./objects/BetterObject3D";
 import { setWorld } from "./Globals";
-import { PlayerController } from "./controllers/playerController";
+import { PlayerController } from "./controllers/PlayerController";
+import { PhysicsHooks } from "./PhysicsHooks";
 
 await RAPIER.init();
 
@@ -72,6 +73,7 @@ const init = () => {
   document.addEventListener("keydown", (event) => {
     // TODO: this preserves between rerenders
     if (event.key === "m") {
+      // TODO: remove event listener on destroy
       toneMappingIndex = (toneMappingIndex + 1) % toneMappingOptions.length;
       renderer.toneMapping = toneMappingOptions[toneMappingIndex];
       console.log("Tone mapping set to", renderer.toneMapping);
@@ -81,6 +83,7 @@ const init = () => {
   const outputColorSpaces = ["srgb", "srgb-linear", "display-p3", "display-p3-linear"];
   let outputColorSpaceIndex = 0;
   document.addEventListener("keydown", (event) => {
+    // TODO: remove event listener on destroy
     if (event.key === "c") {
       outputColorSpaceIndex = (outputColorSpaceIndex + 1) % outputColorSpaces.length;
       renderer.outputColorSpace = outputColorSpaces[outputColorSpaceIndex] as ColorSpace;
@@ -178,7 +181,7 @@ const init = () => {
       world.timestep = delta / 1000 / guiHelper.slowMotion;
     }
     previousTime = time;
-    world.step();
+    world.step(new EventQueue(true), PhysicsHooks);
     sphere.position.copy(sphereRigidBody.translation());
 
     scene.traverse((object) => (object as BetterObject3D).step?.(time));

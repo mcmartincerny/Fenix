@@ -1,19 +1,19 @@
 import { StandardController } from "../objects/Person";
 
 export class PlayerController implements StandardController {
-  rotation = { x: 0, y: 0 };
+  rotation = { x: 0, y: -1 };
 
   pressedKeys: Set<string> = new Set();
 
   keydown = (event: KeyboardEvent) => {
-    this.pressedKeys.add(event.key);
+    this.pressedKeys.add(event.key.toLowerCase());
     if (event.ctrlKey) {
       event.preventDefault();
     }
   };
 
   keyup = (event: KeyboardEvent) => {
-    this.pressedKeys.delete(event.key);
+    this.pressedKeys.delete(event.key.toLowerCase());
   };
 
   constructor() {
