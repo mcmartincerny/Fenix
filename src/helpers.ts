@@ -1,7 +1,7 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import { world } from "./Globals";
 import { BetterObject3D } from "./objects/BetterObject3D";
-import { Quaternion, Vector3 } from "three";
+import { Quaternion, Vector3 as Vector3Class, Vector3Like } from "three";
 
 export function isTouchingGround(obj: BetterObject3D) {
   const colider = obj.rigidBody?.collider(0);
@@ -117,4 +117,38 @@ export function keepRigidBodyUpright(
 
   // Apply the torque to correct the body's rotation around X and Y
   body.applyTorqueImpulse(new RAPIER.Vector3(correctiveTorqueX, correctiveTorqueY, correctiveTorqueZ), true);
+}
+
+export const throttle = <R, A extends any[]>(fn: (...args: A) => R, delay: number): ((...args: A) => R | undefined) => {
+  let wait = false;
+
+  return (...args: A) => {
+    if (wait) return undefined;
+
+    const val = fn(...args);
+
+    wait = true;
+
+    window.setTimeout(() => {
+      wait = false;
+    }, delay);
+
+    return val;
+  };
+};
+
+export const log = throttle((...values: any[]) => {
+  console.log(...values);
+}, 500);
+
+export class Vector3 extends Vector3Class {
+  constructor(xOrVector: Vector3Like);
+  constructor(xOrVector?: number, y?: number, z?: number);
+  constructor(xOrVector?: Vector3Like | number, y?: number, z?: number) {
+    if (typeof xOrVector === "object") {
+      super(xOrVector.x, xOrVector.y, xOrVector.z);
+    } else {
+      super(xOrVector, y, z);
+    }
+  }
 }
