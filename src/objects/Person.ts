@@ -17,7 +17,7 @@ import RAPIER, { GenericImpulseJoint, JointAxesMask } from "@dimforge/rapier3d-c
 import { calfHandleIds, feetHandleIds, world } from "../Globals";
 import { getYawFromQuaternion, isSomeChildTouchingGround, keepRigidBodyUpright, log, rotateVectorAroundZ, throttle, toRange, Vector3 } from "../helpers";
 
-const LEFT_LEG_X_OFFSET = 0.09;
+const LEFT_LEG_X_OFFSET = 0.1;
 export interface StandardController {
   getMovement(): {
     direction: { x: number; y: number };
@@ -79,8 +79,8 @@ export class Person extends BetterObject3D {
       return;
     }
     // console.log("touching ground");
-    const averageFeetPosition = new Vector3().addVectors(this.leftFoot.position, this.rightFoot.position).divideScalar(2);
-    const torsoPosition = this.torso.position;
+    const averageFeetPosition = new Vector3().addVectors(this.leftFoot.rigidBody!.translation(), this.rightFoot.rigidBody!.translation()).divideScalar(2);
+    const torsoPosition = new Vector3(this.torso.rigidBody!.translation());
     const horizontalDifference = averageFeetPosition.clone().sub(torsoPosition).setZ(0).length();
     const legStandingCutOff = 0.5;
     const walkSpeedStatusModifier = toRange(legStandingCutOff - horizontalDifference, { min: 0, max: legStandingCutOff }, { min: 0, max: 1 });
@@ -94,11 +94,14 @@ export class Person extends BetterObject3D {
     const walkSpeedDirectionStatusModifier = toRange(dotBetweenFeetAndMovement, { min: MIN_CUT_OFF_FOR_WALK_IN_FEET_DIRECTION, max: 1 }, { min: 0, max: 1 });
     const MAX_DISTANCE_BETWEEN_TORSO_AND_FEET = 1.15;
     const verticalDistanceBetweenTorsoAndFeet = clamp(torsoPosition.z - averageFeetPosition.z, 0, MAX_DISTANCE_BETWEEN_TORSO_AND_FEET);
+    const differenceBetweenTorsoAndFeet = new Vector3(torsoPosition).setZ(0).sub(averageFeetPosition.clone().setZ(0)).length();
+    const antigravFeetXYModifier = toRange(differenceBetweenTorsoAndFeet, { min: 0, max: 0.3 }, { min: 1, max: 0.5 });
+    const antigravFeetXYForce = 0.1;
     // the smaller the distance the stronger the antigrav
-    const antigravStatusModifier = toRange(verticalDistanceBetweenTorsoAndFeet, { min: 0.2, max: MAX_DISTANCE_BETWEEN_TORSO_AND_FEET }, { min: 1, max: 0.6 });
+    const antigravFeetZmodifier = toRange(verticalDistanceBetweenTorsoAndFeet, { min: 0.5, max: MAX_DISTANCE_BETWEEN_TORSO_AND_FEET }, { min: 1, max: 0.5 });
     // console.log(antigravStatusModifier);
-    const maxAntigravForce = 0.25; // TODO maybe 0.3???
-    const antigrav = maxAntigravForce * antigravStatusModifier;
+    const antigravFeetZForce = 0.2; // TODO maybe 0.3???
+    const antigrav = antigravFeetZForce * antigravFeetZmodifier + antigravFeetXYForce * antigravFeetXYModifier;
     tBody.setGravityScale(-antigrav, true); // TODO: make the antigrav stronger based on the foot position
     const walkSpeedModifier = 0.0007; // TODO: calculate this from the status of the person
     const walkModifiedSpeed = contMov.speed * walkSpeedModifier * clamp(walkSpeedStatusModifier + walkSpeedDirectionStatusModifier, 0, 1);
@@ -113,12 +116,15 @@ export class Person extends BetterObject3D {
 
     const shouldWalk = contMov.direction.x !== 0 || contMov.direction.y !== 0;
     (this.torso.mainMesh!.material as MeshToonMaterial).color.set(shouldWalk ? 0xff0000 : 0x8e44ad);
-    // const shouldWalk = false;
+    // const shouldWalk = true;
     // feet walking
+    // throw new Error(
+    //   "TODO: Completely refactor and rewrite the shouldWalk and not walk mechanic. There should not be 2 mechanics, there should be one where it stabilizes feet one after another. When the feet are under the body, it should stay at rest, but when the body is more far apart from both feet, one feet should lift up and make a step towards the body direction of movement NOT the opposite of the other feet. It would work too but far more poorly."
+    // );
     if (shouldWalk) {
       const distanceBetweenFeet = new Vector3(this.leftFoot.rigidBody!.translation()).distanceTo(this.rightFoot.rigidBody!.translation());
       const feetSwitchCutOff = 0.5;
-      const minTimeBeforeSwitch = 500; // TODO: determine if the switch should occure by the movement direction and feet position
+      const minTimeBeforeSwitch = 1000; // TODO: determine if the switch should occure by the movement direction and feet position
       if (distanceBetweenFeet > feetSwitchCutOff && this.lastFeetSwitch + minTimeBeforeSwitch < Date.now()) {
         console.log("switching feet after " + (Date.now() - this.lastFeetSwitch) + "ms");
         this.rightFeetWalking = !this.rightFeetWalking;
@@ -128,8 +134,8 @@ export class Person extends BetterObject3D {
       const notWalkingFeetRigidBody = this.rightFeetWalking ? this.leftFoot.rigidBody! : this.rightFoot.rigidBody!;
       const verticalDistanceBetweenFeet = walkingFeetRigidBody.translation().z - notWalkingFeetRigidBody.translation().z;
       const IdealVerticalDistanceBetweenFeet = 0.1;
-      const feetUpForceKp = 0; //0.01; //TODO fix
-      const feetUpForceKd = 0; //0.002;
+      const feetUpForceKp = 0.01; //0.01; //TODO fix
+      const feetUpForceKd = 0.002; //0.002;
       // try to push walking feet up so the difference between feet is bigger than minIdealVerticalDistanceBetweenFeet
       const feetUpDifference = IdealVerticalDistanceBetweenFeet - verticalDistanceBetweenFeet;
       const walkingFeetVelocityZ = walkingFeetRigidBody.linvel().z;
@@ -154,6 +160,7 @@ export class Person extends BetterObject3D {
       // apply opposite force to the torso
       tBody.applyImpulse(new RAPIER.Vector3(-walkingFeetHorizontalTotalForce.x, -walkingFeetHorizontalTotalForce.y, 0), true);
       // keep the not walking feet upright
+      keepRigidBodyUpright(walkingFeetRigidBody, this.torso.rigidBody!.rotation());
       keepRigidBodyUpright(notWalkingFeetRigidBody, this.torso.rigidBody!.rotation());
     } else {
       // position feet under the torso
@@ -195,6 +202,12 @@ export class Person extends BetterObject3D {
       // straighten the feet
       keepRigidBodyUpright(rightFoot, this.torso.rigidBody!.rotation());
       keepRigidBodyUpright(leftFoot, this.torso.rigidBody!.rotation());
+
+      // straighten the angle between leg and calf
+      keepRigidBodyUpright(this.leftCalf.rigidBody!);
+      keepRigidBodyUpright(this.rightCalf.rigidBody!);
+      keepRigidBodyUpright(this.leftLeg.rigidBody!);
+      keepRigidBodyUpright(this.rightLeg.rigidBody!);
     }
 
     const desiredAngle = Math.atan2(contMov.rotation.y, contMov.rotation.x) + Math.PI / 2; // Angle in radians + 90 degrees - needed for the rotation
@@ -226,11 +239,20 @@ export class Person extends BetterObject3D {
       JointAxesMask.LinX | JointAxesMask.LinY | JointAxesMask.LinZ | JointAxesMask.AngZ
     );
     const headJoint = world.createImpulseJoint(headJointData, this.torso.rigidBody!, this.head.rigidBody!, true);
-    // headJoint.setContactsEnabled(false);
-    const leftFeelJointData = RAPIER.JointData.fixed(this.leftFoot.position, this.leftFoot.quaternion, this.leftCalf.position, this.leftCalf.quaternion);
-    const leftFeetJoint = world.createImpulseJoint(leftFeelJointData, this.leftCalf.rigidBody!, this.leftFoot.rigidBody!, true);
-    const rightFeelJointData = RAPIER.JointData.fixed(this.rightFoot.position, this.rightFoot.quaternion, this.rightCalf.position, this.rightCalf.quaternion);
-    const rightFeetJoint = world.createImpulseJoint(rightFeelJointData, this.rightCalf.rigidBody!, this.rightFoot.rigidBody!, true);
+    const leftFeetJointData = RAPIER.JointData.generic(
+      new Vector3(0, 0, this.leftFoot.mainMesh!.geometry.boundingBox!.max.z),
+      new Vector3(0, 0, this.leftCalf.mainMesh!.geometry.boundingBox!.min.z),
+      new RAPIER.Vector3(1, 1, 1),
+      JointAxesMask.LinX | JointAxesMask.LinY | JointAxesMask.LinZ | JointAxesMask.AngZ // maybe remove Z?
+    );
+    const leftFeetJoint = world.createImpulseJoint(leftFeetJointData, this.leftFoot.rigidBody!, this.leftCalf.rigidBody!, true);
+    const rightFeetJointData = RAPIER.JointData.generic(
+      new Vector3(0, 0, this.rightFoot.mainMesh!.geometry.boundingBox!.max.z),
+      new Vector3(0, 0, this.rightCalf.mainMesh!.geometry.boundingBox!.min.z),
+      new RAPIER.Vector3(1, 1, 1),
+      JointAxesMask.LinX | JointAxesMask.LinY | JointAxesMask.LinZ | JointAxesMask.AngZ // maybe remove Z?
+    );
+    const rightFeetJoint = world.createImpulseJoint(rightFeetJointData, this.rightFoot.rigidBody!, this.rightCalf.rigidBody!, true);
     const leftCalfJointData = RAPIER.JointData.generic(
       new Vector3(0, 0, this.leftCalf.mainMesh!.geometry.boundingBox!.max.z),
       new Vector3(0, 0, this.leftLeg.mainMesh!.geometry.boundingBox!.min.z),
@@ -310,6 +332,7 @@ export class BodyPart extends BetterObject3D {
     let colider: RAPIER.Collider;
     if (this instanceof Foot) {
       colider = world.createCollider(RAPIER.ColliderDesc.cuboid(boundingBox.x, boundingBox.y, boundingBox.z), this.rigidBody);
+      colider.setFriction(0.3);
       colider.setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS);
       feetHandleIds.add(this.rigidBody!.handle);
     } else {

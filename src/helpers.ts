@@ -54,11 +54,11 @@ export function rotateVectorAroundZ(vector: Vector3, angle: number): Vector3 {
 export function keepRigidBodyUpright(
   body: RAPIER.RigidBody,
   zRot?: RAPIER.Quaternion,
-  Kp = 0.00009,
-  Kd = 0.00001,
-  Kp_Z = 0.00008,
-  Kd_Z = 0.000003,
-  MAX_FORCE = 0.01
+  Kp = 0.00003,
+  Kd = 0.000005,
+  Kp_Z = 0.000003,
+  Kd_Z = 0.0000006,
+  MAX_FORCE = 0.0001
 ) {
   const rot = body.rotation();
   // Get the current body rotation as quaternion

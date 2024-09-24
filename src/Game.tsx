@@ -157,6 +157,7 @@ const init = () => {
   groundRigidBody.userData = { name: "ground" };
   const groundCollider = world.createCollider(RAPIER.ColliderDesc.cuboid(15, 15, 0.1).setTranslation(0.0, 0.0, 0.0), groundRigidBody);
   groundCollider.setRestitution(1);
+  groundCollider.setFriction(1);
 
   const wallGeometry = new PlaneGeometry(6, 4, 99, 99);
   const wallMaterial = new MeshStandardMaterial();
