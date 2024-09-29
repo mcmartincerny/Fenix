@@ -1,4 +1,4 @@
-import RAPIER from "@dimforge/rapier3d-compat";
+import RAPIER, { QueryFilterFlags, Ray } from "@dimforge/rapier3d-compat";
 import { world } from "./Globals";
 import { BetterObject3D } from "./objects/BetterObject3D";
 import { Quaternion, Vector3 as Vector3Class, Vector3Like } from "three";
@@ -108,9 +108,9 @@ export function keepRigidBodyUpright(
     // Total corrective torque for Z is P term + D term
     correctiveTorqueZ = correctiveTorqueZ_P + correctiveTorqueZ_D;
   }
-  if (correctiveTorqueX > MAX_FORCE || correctiveTorqueY > MAX_FORCE || correctiveTorqueZ > MAX_FORCE) {
-    console.log("MAX FORCE EXCEEDED");
-  }
+  // if (correctiveTorqueX > MAX_FORCE || correctiveTorqueY > MAX_FORCE || correctiveTorqueZ > MAX_FORCE) {
+  //   console.log("MAX FORCE EXCEEDED");
+  // }
   correctiveTorqueX = clamp(correctiveTorqueX, -MAX_FORCE, MAX_FORCE);
   correctiveTorqueY = clamp(correctiveTorqueY, -MAX_FORCE, MAX_FORCE);
   correctiveTorqueZ = clamp(correctiveTorqueZ, -MAX_FORCE, MAX_FORCE);
@@ -152,3 +152,65 @@ export class Vector3 extends Vector3Class {
     }
   }
 }
+
+/**
+ * debug rigid body used only for visualizing some position
+ * if there isn't one already created, it creates it and sets the position
+ * if there is one already created, it sets the position
+ */
+export const debugRigidBody = (position: Vector3Like, name: string, zOffset = 0) => {
+  let debugRigidBody = debugRigidBodies.get(name);
+  if (debugRigidBody == null) {
+    debugRigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(position.x, position.y, position.z + zOffset));
+    const coliderData = RAPIER.ColliderDesc.ball(0.1).setCollisionGroups(Math.round(Math.random() * 1000));
+    world.createCollider(coliderData, debugRigidBody);
+    debugRigidBodies.set(name, debugRigidBody);
+  } else {
+    debugRigidBody.setTranslation(new RAPIER.Vector3(position.x, position.y, position.z + zOffset), true);
+  }
+  return debugRigidBody;
+};
+
+const debugRigidBodies: Map<string, RAPIER.RigidBody> = new Map();
+
+export const resetDebugRigidBodies = () => {
+  debugRigidBodies.forEach((body) => {
+    world.removeRigidBody(body);
+  });
+  debugRigidBodies.clear();
+};
+
+export const getIdealPositionOfUpperFoot = (
+  downFootDistanceToTorso: number,
+  torsoVelocity: number,
+  lowerFootDistanceBeforeSwitchingFeet: number
+): { higherFootIdealDistanceToTorso: number; higherFootIdealHeightDiff: number } => {
+  torsoVelocity = clamp(torsoVelocity, 0, 1);
+  const idealDistanceToTorsoOfUpperFoot = -downFootDistanceToTorso * torsoVelocity; //TODO  + torsoVelocity * 0.1;
+  const ZOffsetFromTheDownFoot =
+    toRange(downFootDistanceToTorso, { min: -lowerFootDistanceBeforeSwitchingFeet, max: lowerFootDistanceBeforeSwitchingFeet }, { min: 0.2, max: -0.05 }) *
+    torsoVelocity;
+  return { higherFootIdealDistanceToTorso: idealDistanceToTorsoOfUpperFoot, higherFootIdealHeightDiff: ZOffsetFromTheDownFoot };
+};
+
+export const castRayBelow = (position: Vector3Like, maxDistance = 0.3): number | false => {
+  const direction = new RAPIER.Vector3(0, 0, -1);
+  const ray = world.castRay(new Ray(position, direction), maxDistance, true, QueryFilterFlags.ONLY_FIXED);
+  if (ray) {
+    return ray.timeOfImpact;
+  }
+  return false;
+};
+
+/*
+  Checks if the position is behind the object in movement
+*/
+export const isBehindObjectInMovementXY = (rigidBody: RAPIER.RigidBody, position: Vector3Like): boolean => {
+  const rigidBodyPos = new Vector3(rigidBody.translation()).setZ(0);
+  const rigidBodyVel = new Vector3(rigidBody.linvel()).setZ(0);
+  const rigidBodyPosPlusVel = rigidBodyPos.clone().add(rigidBodyVel);
+  const pos = new Vector3(position).setZ(0);
+  const distanceToRigidBody = pos.distanceTo(rigidBodyPos);
+  const distanceToPosPlusVel = pos.distanceTo(rigidBodyPosPlusVel);
+  return distanceToPosPlusVel > distanceToRigidBody;
+};

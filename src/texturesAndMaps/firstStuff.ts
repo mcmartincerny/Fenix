@@ -84,6 +84,7 @@ export function generateBricksMap(sizeX: number, sizeY: number, brickDepth = 255
   });
 }
 
+// TODO: add discoloring for every brick
 export function generateBricksTexture(sizeX: number, sizeY: number, brickWidth = 12, brickHeight = 7, mortarWidth = 1) {
   return generateTextureMap(sizeX, sizeY, (x, y) => {
     const mortarVertical = y % (brickHeight + mortarWidth) < mortarWidth;

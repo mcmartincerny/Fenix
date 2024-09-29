@@ -40,10 +40,10 @@ export class PlayerController implements StandardController {
       this.rotation = { ...direction };
       speed = 1;
     }
-    if (this.pressedKeys.has("Control")) {
+    if (this.pressedKeys.has("control")) {
       speed = 0.3;
     }
-    if (this.pressedKeys.has("Shift")) {
+    if (this.pressedKeys.has("shift")) {
       speed = 2;
     }
     if (Math.abs(direction.x) + Math.abs(direction.y) > 1) {

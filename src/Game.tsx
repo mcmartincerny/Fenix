@@ -34,13 +34,14 @@ import { BetterObject3D } from "./objects/BetterObject3D";
 import { setWorld } from "./Globals";
 import { PlayerController } from "./controllers/PlayerController";
 import { PhysicsHooks } from "./PhysicsHooks";
+import { resetDebugRigidBodies } from "./helpers";
 
 await RAPIER.init();
 
 const stats = new Stats();
 
 const testCubesGuiHelper = {
-  enabled: true,
+  enabled: false,
   speed: 0.001,
 };
 
@@ -143,7 +144,7 @@ const init = () => {
   scene.add(sphere);
   const sphereRigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0.0, 2.0, 3.0));
   const sphereCollider = world.createCollider(RAPIER.ColliderDesc.ball(1.0).setTranslation(0.0, 0.0, 0.0), sphereRigidBody);
-  sphereCollider.setRestitution(0.5);
+  sphereCollider.setRestitution(0.8);
   sphereCollider.setDensity(0.05);
 
   const groundGeometry = new PlaneGeometry(30, 30, 599, 599);
@@ -236,6 +237,7 @@ const init = () => {
     destroySceneObjects(scene);
     renderer.dispose();
     gui.destroy();
+    resetDebugRigidBodies();
     console.log("cleanup complete");
   };
 };
