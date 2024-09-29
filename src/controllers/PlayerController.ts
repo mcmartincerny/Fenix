@@ -38,13 +38,13 @@ export class PlayerController implements StandardController {
     }
     if (Math.abs(direction.x) + Math.abs(direction.y) > 0) {
       this.rotation = { ...direction };
-      speed = 1;
+      speed = 0.7;
     }
     if (this.pressedKeys.has("control")) {
-      speed = 0.3;
+      speed = 0.4;
     }
     if (this.pressedKeys.has("shift")) {
-      speed = 2;
+      speed = 2.5;
     }
     if (Math.abs(direction.x) + Math.abs(direction.y) > 1) {
       direction.x /= Math.sqrt(2);

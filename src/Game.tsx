@@ -7,6 +7,7 @@ import {
   CineonToneMapping,
   ColorSpace,
   CustomToneMapping,
+  DirectionalLight,
   LinearToneMapping,
   Mesh,
   MeshPhongMaterial,
@@ -35,6 +36,7 @@ import { setWorld } from "./Globals";
 import { PlayerController } from "./controllers/PlayerController";
 import { PhysicsHooks } from "./PhysicsHooks";
 import { resetDebugRigidBodies } from "./helpers";
+import { createPrismWithColider, createStairsWithColider } from "./objects/Shapes";
 
 await RAPIER.init();
 
@@ -175,9 +177,14 @@ const init = () => {
   wall.rotation.z = Math.PI;
   scene.add(wall);
 
-  const light = new PointLight(0xffffff, 35);
-  light.position.set(1, -2, 2);
+  const light = new PointLight(0xffffff, 20, 0, 1.4);
+  light.position.set(0, -4, 4);
   scene.add(light);
+
+  const directionalLight = new DirectionalLight(0xffffff, 0.05);
+  directionalLight.position.set(0, 0, 20);
+  directionalLight.lookAt(-10, -10, 0);
+  scene.add(directionalLight);
 
   const person = new Person(new PlayerController());
   person.position.z = 3;
@@ -200,6 +207,13 @@ const init = () => {
 
   gui.add(testCubesGuiHelper, "enabled").name("Enable test cubes");
   gui.add(testCubesGuiHelper, "speed").min(0.001).max(0.005).name("Test cubes speed");
+
+  for (let i = 0; i < 5; i++) {
+    const { prism } = createPrismWithColider({ length: 2, width: 2, angle: 10 + i * 20 }, [-6, i * 2 - 5, 0]);
+    scene.add(prism);
+  }
+  const { stairs } = createStairsWithColider({ length: 2.5, width: 2, height: 2, steps: 10, solidBottom: false }, [0.5, 1, 0]);
+  scene.add(stairs);
 
   let running = true;
   let previousTime: number;

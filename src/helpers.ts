@@ -1,7 +1,7 @@
 import RAPIER, { QueryFilterFlags, Ray } from "@dimforge/rapier3d-compat";
 import { world } from "./Globals";
 import { BetterObject3D } from "./objects/BetterObject3D";
-import { Quaternion, Vector3 as Vector3Class, Vector3Like } from "three";
+import { Mesh, Quaternion, Vector3 as Vector3Class, Vector3Like } from "three";
 
 export function isTouchingGround(obj: BetterObject3D) {
   const colider = obj.rigidBody?.collider(0);
@@ -186,15 +186,19 @@ export const getIdealPositionOfUpperFoot = (
   lowerFootDistanceBeforeSwitchingFeet: number
 ): { higherFootIdealDistanceToTorso: number; higherFootIdealHeightDiff: number } => {
   torsoVelocity = clamp(torsoVelocity, 0, 1);
-  const idealDistanceToTorsoOfUpperFoot = -downFootDistanceToTorso * torsoVelocity; //TODO  + torsoVelocity * 0.1;
+  const idealDistanceToTorsoOfUpperFoot = -downFootDistanceToTorso * torsoVelocity;
   const ZOffsetFromTheDownFoot =
-    toRange(downFootDistanceToTorso, { min: -lowerFootDistanceBeforeSwitchingFeet, max: lowerFootDistanceBeforeSwitchingFeet }, { min: 0.2, max: -0.05 }) *
+    toRange(downFootDistanceToTorso, { min: -lowerFootDistanceBeforeSwitchingFeet, max: lowerFootDistanceBeforeSwitchingFeet }, { min: 0.4, max: -0.05 }) *
     torsoVelocity;
   return { higherFootIdealDistanceToTorso: idealDistanceToTorsoOfUpperFoot, higherFootIdealHeightDiff: ZOffsetFromTheDownFoot };
 };
 
-export const castRayBelow = (position: Vector3Like, maxDistance = 0.3): number | false => {
+export const castRayBelow = (position: Vector3Like, maxDistance = 0.8): number | false => {
   const direction = new RAPIER.Vector3(0, 0, -1);
+  return castRay(position, direction, maxDistance);
+};
+
+export const castRay = (position: Vector3Like, direction: Vector3Like, maxDistance = 0.3): number | false => {
   const ray = world.castRay(new Ray(position, direction), maxDistance, true, QueryFilterFlags.ONLY_FIXED);
   if (ray) {
     return ray.timeOfImpact;
