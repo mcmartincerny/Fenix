@@ -4,7 +4,7 @@ import { Vector3 } from "../helpers";
 import { BetterObject3D } from "../objects/BetterObject3D";
 import { PerspectiveCamera } from "three";
 
-export class FollowingCamera extends BetterObject3D {
+export class TopDownCamera extends BetterObject3D {
   camera: PerspectiveCamera;
   target: BetterObject3D;
   canvas: HTMLCanvasElement;

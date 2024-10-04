@@ -34,7 +34,7 @@ import { BetterObject3D } from "./objects/BetterObject3D";
 import { setWorld } from "./Globals";
 import { PlayerTopDownController } from "./controllers/PlayerController";
 import { PhysicsHooks } from "./PhysicsHooks";
-import { resetDebugRigidBodies } from "./helpers";
+import { log, resetDebugRigidBodies } from "./helpers";
 import { createPrismWithColider, createStairsWithColider } from "./objects/Shapes";
 import { CameraSwitcher, CameraType } from "./cameras/CameraSwitcher";
 
@@ -54,7 +54,10 @@ export const Game = () => {
 
   useEffect(() => {
     const resetF = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "r") setReset((r) => !r);
+      if (e.key.toLowerCase() === "r") {
+        setReset((r) => !r);
+        document.exitPointerLock();
+      }
     };
     document.addEventListener("keydown", resetF);
     stats.showPanel(0);
@@ -245,6 +248,9 @@ const init = () => {
     resizeRendererToDisplaySize(renderer, cameraSwitcher.camera);
     renderer.render(scene, cameraSwitcher.camera);
     stats.end();
+    log(`Make it into a loot it game. Two or three teams on a map with buildings where 
+      is loot and dangers. Each team has some base - maybe a van? Maybe movable? Where they can store loot and respawn.
+      Game ends in 10m or after some respawn points and which team has the most loot wins.`);
   };
   animate(0);
 

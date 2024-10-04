@@ -1,12 +1,14 @@
 import { PerspectiveCamera } from "three";
-import { FollowingCamera } from "./FollowingCamera";
+import { TopDownCamera } from "./TopDownCamera";
 import { BetterObject3D } from "../objects/BetterObject3D";
 // @ts-ignore
 import { OrbitControls } from "three/addons/controls/OrbitControls";
 import { ThirdPersonCamera } from "./ThirdPersonCamera";
+import { Person } from "../objects/Person";
+import { PlayerThirdPersonController, PlayerTopDownController } from "../controllers/PlayerController";
 export enum CameraType {
   Free = "Free",
-  Follow = "Follow",
+  TopDown = "TopDown",
   ThirdPerson = "ThirdPerson",
   None = "None",
 }
@@ -17,11 +19,11 @@ export class CameraSwitcher {
   type: CameraType;
   fov = 75;
   aspect = 2;
-  near = 0.1;
+  near = 0.2;
   far = 100;
   camera: PerspectiveCamera = new PerspectiveCamera(this.fov, this.aspect, this.near, this.far);
   orbitControls?: OrbitControls;
-  followingCamera?: FollowingCamera;
+  followingCamera?: TopDownCamera;
   thirdPersonCamera?: ThirdPersonCamera;
 
   constructor(canvasElement: HTMLCanvasElement, cameraTarget: BetterObject3D, cameraType: CameraType = CameraType.ThirdPerson) {
@@ -37,7 +39,7 @@ export class CameraSwitcher {
   switchCamera(type: CameraType) {
     if (this.type === CameraType.Free) {
       this.unswitchFromFreeCamera();
-    } else if (this.type === CameraType.Follow) {
+    } else if (this.type === CameraType.TopDown) {
       this.unswitchFromFollowCamera();
     } else if (this.type === CameraType.ThirdPerson) {
       this.unswitchFromThirdPersonCamera();
@@ -47,7 +49,7 @@ export class CameraSwitcher {
 
     if (this.type === CameraType.Free) {
       this.switchToFreeCamera();
-    } else if (this.type === CameraType.Follow) {
+    } else if (this.type === CameraType.TopDown) {
       this.switchToFollowCamera();
     } else if (this.type === CameraType.ThirdPerson) {
       this.switchToThirdPersonCamera();
@@ -74,7 +76,7 @@ export class CameraSwitcher {
 
   switchToFollowCamera() {
     if (!this.followingCamera) {
-      this.followingCamera = new FollowingCamera(this.camera, this.cameraTarget, this.canvasElement);
+      this.followingCamera = new TopDownCamera(this.camera, this.cameraTarget, this.canvasElement);
       this.followingCamera.init();
     }
   }
@@ -86,15 +88,22 @@ export class CameraSwitcher {
       this.thirdPersonCamera = new ThirdPersonCamera(this.camera, this.cameraTarget, this.canvasElement);
       this.thirdPersonCamera.init();
     }
+    this.camera.quaternion.set(0.5, 0, 0, 1);
     this.thirdPersonCamera.setActive(true);
+    if (this.cameraTarget.parent instanceof Person) {
+      this.cameraTarget.parent.controller = new PlayerThirdPersonController(this.cameraTarget, this.camera);
+    }
   }
 
   unswitchFromThirdPersonCamera() {
     this.thirdPersonCamera?.setActive(false);
+    if (this.cameraTarget.parent instanceof Person) {
+      this.cameraTarget.parent.controller = new PlayerTopDownController();
+    }
   }
 
   beforeStep() {
-    if (this.type === CameraType.Follow) {
+    if (this.type === CameraType.TopDown) {
       this.followingCamera?.beforeStep();
     } else if (this.type === CameraType.ThirdPerson) {
       this.thirdPersonCamera?.beforeStep();
@@ -102,7 +111,7 @@ export class CameraSwitcher {
   }
 
   afterStep() {
-    if (this.type === CameraType.Follow) {
+    if (this.type === CameraType.TopDown) {
       this.followingCamera?.afterStep();
     } else if (this.type === CameraType.ThirdPerson) {
       this.thirdPersonCamera?.afterStep();

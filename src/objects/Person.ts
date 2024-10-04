@@ -45,7 +45,7 @@ export interface StandardController {
 }
 
 export class Person extends BetterObject3D {
-  private controller: StandardController;
+  public controller: StandardController;
   public torso: Torso;
   private head: Head;
   private leftArm: Arm;
@@ -440,7 +440,7 @@ export class BodyPart extends BetterObject3D {
 export class Torso extends BodyPart {
   constructor() {
     super();
-    const torsoGeometry = new ParametricGeometry(parametricCurvedCube(0.6, 0.45, 0.3, 0.3), 100, 100);
+    const torsoGeometry = new ParametricGeometry(parametricCurvedCube(0.6, 0.45, 0.3, 0.3), 60, 20);
     const torsoMaterial = new MeshToonMaterial({ color: 0x8e44ad, gradientMap: generateGradientMap() });
     const torsoMesh = new Mesh(torsoGeometry, torsoMaterial);
     this.addMainMesh(torsoMesh);
@@ -450,8 +450,7 @@ export class Torso extends BodyPart {
 export class Head extends BodyPart {
   constructor() {
     super();
-    // const headGeometry = new SphereGeometry(0.15, 20, 20);
-    const headGeometry = new ParametricGeometry(parametricCurvedCube(0.2, 0.16, 0.2, 0.3), 100, 100);
+    const headGeometry = new ParametricGeometry(parametricCurvedCube(0.2, 0.16, 0.2, 0.3), 20, 10);
     headGeometry.computeBoundingBox();
     const headMaterial = new MeshToonMaterial({ color: 0xf1c27d, gradientMap: generateGradientMap() });
     const headMesh = new Mesh(headGeometry, headMaterial);
@@ -470,7 +469,7 @@ export class Arm extends BodyPart {
     super();
     const side = right ? 1 : -1;
     const material = new MeshToonMaterial({ color: 0x3498db, gradientMap: generateGradientMap() });
-    const armGeometry = new ParametricGeometry(parametricCurvedCube(0.25, 0.09, 0.09, 0.2), 100, 100);
+    const armGeometry = new ParametricGeometry(parametricCurvedCube(0.25, 0.09, 0.09, 0.2), 50, 20);
     const armMesh = new Mesh(armGeometry, material);
     // this.rotation.y = -(Math.PI / 6) * side;
     this.position.x = 0.22 * side;
@@ -484,7 +483,7 @@ export class Forearm extends BodyPart {
     super();
     const side = right ? 1 : -1;
     const material = new MeshToonMaterial({ color: 0x3498db, gradientMap: generateGradientMap() });
-    const forearmGeometry = new ParametricGeometry(parametricCurvedCube(0.35, 0.07, 0.07, 0.3), 100, 100);
+    const forearmGeometry = new ParametricGeometry(parametricCurvedCube(0.35, 0.07, 0.07, 0.3), 50, 20);
     const forearmMesh = new Mesh(forearmGeometry, material);
     this.position.x = 0.275 * side;
     this.position.z = -0.1;
@@ -497,7 +496,7 @@ export class Leg extends BodyPart {
     super();
     const side = right ? 1 : -1;
     const material = new MeshToonMaterial({ color: 0x2ecc71, gradientMap: generateGradientMap() });
-    const thighGeometry = new ParametricGeometry(parametricCurvedCube(0.4, 0.17, 0.17, 0.2), 100, 100);
+    const thighGeometry = new ParametricGeometry(parametricCurvedCube(0.4, 0.17, 0.17, 0.2), 50, 20);
     const thighMesh = new Mesh(thighGeometry, material);
     this.position.x = -LEFT_LEG_X_OFFSET * side;
     this.position.z = -0.48;
@@ -510,7 +509,7 @@ export class Calf extends BodyPart {
     super();
     const side = right ? 1 : -1;
     const material = new MeshToonMaterial({ color: 0x2ecc71, gradientMap: generateGradientMap() });
-    const calfGeometry = new ParametricGeometry(parametricCurvedCube(0.45, 0.14, 0.11, 0.4), 100, 100);
+    const calfGeometry = new ParametricGeometry(parametricCurvedCube(0.45, 0.14, 0.11, 0.4), 50, 20);
     const calfMesh = new Mesh(calfGeometry, material);
     this.position.x = -LEFT_LEG_X_OFFSET * side;
     this.position.z = -0.88;
@@ -523,7 +522,7 @@ export class Foot extends BodyPart {
     super();
     const side = right ? 1 : -1;
     const material = new MeshToonMaterial({ color: 0x2ecc71, gradientMap: generateGradientMap() });
-    const footGeometry = new ParametricGeometry(parametricCurvedCube(0.05, 0.2, 0.2, 0.3), 100, 100);
+    const footGeometry = new ParametricGeometry(parametricCurvedCube(0.05, 0.2, 0.2, 0.3), 50, 20);
     const footMesh = new Mesh(footGeometry, material);
     this.position.x = -LEFT_LEG_X_OFFSET * side;
     this.position.z = -1.11;

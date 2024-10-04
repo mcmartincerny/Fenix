@@ -1,6 +1,6 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import { world } from "../Globals";
-import { Vector3 } from "../helpers";
+import { debugRigidBody, Vector3 } from "../helpers";
 import { BetterObject3D } from "../objects/BetterObject3D";
 import { Euler, MathUtils, PerspectiveCamera, Quaternion } from "three";
 
@@ -9,10 +9,11 @@ export class ThirdPersonCamera extends BetterObject3D {
   target: BetterObject3D;
   canvas: HTMLCanvasElement;
   zOffset = 0.3;
-  behindOffset = 1;
+  maxZBellowTarget = 0.8;
+  behindOffset = 2;
   velocityMultiplier = 0.3;
-  moveKp = 0.025;
-  linearDamping = 10;
+  moveKp = 0.01;
+  linearDamping = 30;
   mouseSensitivity = 0.004;
   minPitch = 20;
   maxPitch = 160;
@@ -29,7 +30,7 @@ export class ThirdPersonCamera extends BetterObject3D {
     );
     this.rigidBody.setGravityScale(0, true);
     this.rigidBody.setLinearDamping(this.linearDamping);
-    this.rigidBody.setAdditionalMass(0.1, true);
+    this.rigidBody.setAdditionalMass(0.01, true);
   }
 
   setActive(active: boolean) {
@@ -62,15 +63,17 @@ export class ThirdPersonCamera extends BetterObject3D {
   afterUpdate() {
     this.turnCameraBasedOnMouse();
     const idealCameraPosition = this.getTargetPosition()
-      .add(new Vector3(0, 0, this.zOffset))
-      .add(this.getTargetVelocity().multiplyScalar(-this.velocityMultiplier));
+      .add(this.getTargetVelocity().multiplyScalar(-this.velocityMultiplier))
+      .setZ(this.getTargetPosition().z + this.zOffset);
     const offsetVector = new Vector3(0, 0, this.behindOffset);
     offsetVector.applyQuaternion(this.camera.quaternion);
     idealCameraPosition.add(offsetVector);
-    // .add(new Vector3(0, this.behindOffset, 0));
+    if (idealCameraPosition.z < this.getTargetPosition().z - this.maxZBellowTarget) {
+      idealCameraPosition.setZ(this.getTargetPosition().z - this.maxZBellowTarget);
+    }
     const cameraPosition = new Vector3(this.rigidBody!.translation());
     const error = idealCameraPosition.sub(cameraPosition);
-    const force = error.multiplyScalar(this.moveKp);
+    const force = error.multiplyScalar(this.moveKp * error.length()); // multiply by error length to make it exponential
     this.rigidBody!.applyImpulse(force, true);
   }
 
