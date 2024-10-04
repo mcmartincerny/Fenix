@@ -1,6 +1,6 @@
 import { StandardController } from "../objects/Person";
 
-export class PlayerController implements StandardController {
+export class PlayerTopDownController implements StandardController {
   rotation = { x: 0, y: -1 };
 
   pressedKeys: Set<string> = new Set();

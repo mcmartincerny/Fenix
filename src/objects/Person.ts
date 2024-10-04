@@ -46,7 +46,7 @@ export interface StandardController {
 
 export class Person extends BetterObject3D {
   private controller: StandardController;
-  private torso: Torso;
+  public torso: Torso;
   private head: Head;
   private leftArm: Arm;
   private rightArm: Arm;

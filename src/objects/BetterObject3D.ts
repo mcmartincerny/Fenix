@@ -1,5 +1,6 @@
 import RAPIER from "@dimforge/rapier3d-compat";
 import { Object3D } from "three";
+import { world } from "../Globals";
 
 export class BetterObject3D extends Object3D {
   rigidBody?: RAPIER.RigidBody;
@@ -32,14 +33,14 @@ export class BetterObject3D extends Object3D {
     this.beforeUpdate();
   }
 
-  step(delta: number) {
-    this.update();
+  afterStep() {
+    this.afterUpdate();
     this.updatePhysics();
   }
 
   beforeUpdate() {}
 
-  update() {}
+  afterUpdate() {}
 
   updatePhysics() {
     if (this.rigidBody?.isDynamic) {
@@ -52,28 +53,14 @@ export class BetterObject3D extends Object3D {
     objects.forEach((object) => this.add(object));
   }
 
-  // getCorrectPositionToWorld() {
-  //   let parent = this.parent;
-  //   const position = this.position.clone();
-  //   while (parent) {
-  //     console.log(parent.position);
-  //     position.add(parent.position);
-  //     parent = parent.parent;
-  //   }
-  //   return position;
-  // }
+  dispose() {
+    if (this.rigidBody) {
+      world.removeRigidBody(this.rigidBody);
+    }
+    this.children.forEach((child) => {
+      if (child instanceof BetterObject3D) {
+        child.dispose();
+      }
+    });
+  }
 }
-
-// function findWorldInParent(object: BetterObject3D): RAPIER.World {
-//   let parent = object.parent;
-//   while (parent) {
-//     if (parent instanceof BetterObject3D) {
-//       return parent.world;
-//     }
-//     if (parent instanceof Scene) {
-//       return parent.userData.world;
-//     }
-//     parent = parent.parent;
-//   }
-//   throw new Error("BetterObject3D must be a child of a BetterObject3D or a Scene with a world property");
-// }

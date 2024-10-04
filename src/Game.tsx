@@ -23,8 +23,7 @@ import {
   SphereGeometry,
   WebGLRenderer,
 } from "three";
-// @ts-ignore
-import { OrbitControls } from "three/addons/controls/OrbitControls";
+
 import { Person } from "./objects/Person";
 import Stats from "stats.js";
 import { generateBricksMap, generateBricksTexture, generateGradientMap, generateGrassBumpMap } from "./texturesAndMaps/firstStuff";
@@ -33,10 +32,11 @@ import { RapierDebugRenderer } from "./Debug";
 import GUI from "lil-gui";
 import { BetterObject3D } from "./objects/BetterObject3D";
 import { setWorld } from "./Globals";
-import { PlayerController } from "./controllers/PlayerController";
+import { PlayerTopDownController } from "./controllers/PlayerController";
 import { PhysicsHooks } from "./PhysicsHooks";
 import { resetDebugRigidBodies } from "./helpers";
 import { createPrismWithColider, createStairsWithColider } from "./objects/Shapes";
+import { CameraSwitcher, CameraType } from "./cameras/CameraSwitcher";
 
 await RAPIER.init();
 
@@ -106,15 +106,6 @@ const init = () => {
       console.log("Output color space set to", outputColorSpaces[outputColorSpaceIndex]);
     }
   });
-  const camera = new PerspectiveCamera(75, 2, 0.1, 100);
-  camera.up.set(0, 0, 1);
-  camera.position.z = 4;
-  camera.position.y = -5;
-  const controls = new OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.25;
-  controls.target.set(0, 3, 2);
-  controls.update();
 
   const scene = new Scene();
 
@@ -186,10 +177,17 @@ const init = () => {
   directionalLight.lookAt(-10, -10, 0);
   scene.add(directionalLight);
 
-  const person = new Person(new PlayerController());
+  const person = new Person(new PlayerTopDownController());
   person.position.z = 3;
   scene.add(person);
   person.init();
+
+  const cameraSwitcher = new CameraSwitcher(canvas, person.torso);
+  gui
+    .add({}, "dummy", CameraType)
+    .name("Camera type")
+    .setValue(cameraSwitcher.type)
+    .onChange((type: CameraType) => cameraSwitcher.switchCamera(type));
 
   const cubeGeometry = new BoxGeometry(1, 3, 2);
   const cubeMaterial = new MeshStandardMaterial({ color: 0x44aa88 });
@@ -222,12 +220,16 @@ const init = () => {
     stats.begin();
     requestAnimationFrame(animate);
     scene.traverse((object) => (object as BetterObject3D).beforeStep?.());
+    cameraSwitcher.beforeStep();
     const cubeZ = testCubesGuiHelper.enabled ? 1 : -3;
     const cubePos = Math.sin(time * testCubesGuiHelper.speed) * 2.8;
     cubeRigidBody.setNextKinematicTranslation({ x: cubePos + 3, y: 0, z: cubeZ });
     cubeRigidBody2.setNextKinematicTranslation({ x: cubePos - 3, y: 0, z: cubeZ });
     if (previousTime) {
-      const delta = time - previousTime;
+      let delta = time - previousTime;
+      if (delta > 50) {
+        delta = 50;
+      }
       world.timestep = delta / 1000 / guiHelper.slowMotion;
     }
     previousTime = time;
@@ -236,11 +238,12 @@ const init = () => {
     cube.position.copy(cubeRigidBody.translation());
     cube2.position.copy(cubeRigidBody2.translation());
 
-    scene.traverse((object) => (object as BetterObject3D).step?.(time));
+    scene.traverse((object) => (object as BetterObject3D).afterStep?.());
+    cameraSwitcher.afterStep();
 
     rapierDebugRenderer.update();
-    resizeRendererToDisplaySize(renderer, camera);
-    renderer.render(scene, camera);
+    resizeRendererToDisplaySize(renderer, cameraSwitcher.camera);
+    renderer.render(scene, cameraSwitcher.camera);
     stats.end();
   };
   animate(0);
@@ -251,6 +254,7 @@ const init = () => {
     destroySceneObjects(scene);
     renderer.dispose();
     gui.destroy();
+    cameraSwitcher.dispose();
     resetDebugRigidBodies();
     console.log("cleanup complete");
   };
