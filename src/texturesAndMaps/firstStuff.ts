@@ -99,3 +99,10 @@ export function generateBricksTexture(sizeX: number, sizeY: number, brickWidth =
     }
   });
 }
+
+export function generateNoiseTexture(sizeX: number, sizeY: number) {
+  return generateTextureMap(sizeX, sizeY, () => {
+    const value = Math.random() * 255;
+    return [value, value, value];
+  });
+}

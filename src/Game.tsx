@@ -3,11 +3,14 @@ import "./Game.css";
 import {
   ACESFilmicToneMapping,
   AgXToneMapping,
+  AmbientLight,
   BoxGeometry,
   CineonToneMapping,
   ColorSpace,
   CustomToneMapping,
   DirectionalLight,
+  HemisphereLight,
+  Light,
   LinearToneMapping,
   Mesh,
   MeshPhongMaterial,
@@ -31,12 +34,13 @@ import RAPIER, { EventQueue } from "@dimforge/rapier3d-compat";
 import { RapierDebugRenderer } from "./Debug";
 import GUI from "lil-gui";
 import { BetterObject3D } from "./objects/BetterObject3D";
-import { setWorld } from "./Globals";
+import { setGui, setWorld } from "./Globals";
 import { PlayerTopDownController } from "./controllers/PlayerController";
 import { PhysicsHooks } from "./PhysicsHooks";
 import { log, resetDebugRigidBodies } from "./helpers";
 import { createPrismWithColider, createStairsWithColider } from "./objects/Shapes";
 import { CameraSwitcher, CameraType } from "./cameras/CameraSwitcher";
+import { DestructibleBlock } from "./objects/DestructibleBlock";
 
 await RAPIER.init();
 
@@ -75,6 +79,7 @@ export const Game = () => {
 const init = () => {
   console.log("init");
   const gui = new GUI();
+  setGui(gui);
   const canvas = document.querySelector("#gameCanvas") as HTMLCanvasElement;
   const renderer = new WebGLRenderer({ antialias: true, canvas, alpha: true }); // TODO: settings
   renderer.setPixelRatio(2); // TODO: settings
@@ -180,6 +185,9 @@ const init = () => {
   directionalLight.lookAt(-10, -10, 0);
   scene.add(directionalLight);
 
+  const hemisphereLight = new HemisphereLight(0xffffff, 0x444444, 0.1);
+  scene.add(hemisphereLight);
+
   const person = new Person(new PlayerTopDownController());
   person.position.z = 3;
   scene.add(person);
@@ -215,6 +223,17 @@ const init = () => {
   }
   const { stairs } = createStairsWithColider({ length: 2.5, width: 2, height: 2, steps: 10, solidBottom: false }, [0.5, 1, 0]);
   scene.add(stairs);
+
+  const destructibleBlock = new DestructibleBlock({
+    position: { x: 0, y: 0, z: 0 },
+    size: { x: 2, y: 0.2, z: 2 },
+    detail: 20,
+  });
+  scene.add(destructibleBlock);
+  destructibleBlock.init();
+  setTimeout(() => {
+    destructibleBlock.position.set(0, -0.5, 1.5);
+  }, 100);
 
   let running = true;
   let previousTime: number;

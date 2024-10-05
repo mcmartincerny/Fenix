@@ -158,15 +158,16 @@ export class Vector3 extends Vector3Class {
  * if there isn't one already created, it creates it and sets the position
  * if there is one already created, it sets the position
  */
-export const debugRigidBody = (position: Vector3Like, name: string, zOffset = 0) => {
+export const debugRigidBody = (position: Vector3Like, name: string, zOffset = 0, radius = 0.1) => {
   let debugRigidBody = debugRigidBodies.get(name);
   if (debugRigidBody == null) {
     debugRigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(position.x, position.y, position.z + zOffset));
-    const coliderData = RAPIER.ColliderDesc.ball(0.1).setCollisionGroups(Math.round(Math.random() * 1000));
+    const coliderData = RAPIER.ColliderDesc.ball(radius).setCollisionGroups(Math.round(Math.random() * 1000));
     world.createCollider(coliderData, debugRigidBody);
     debugRigidBodies.set(name, debugRigidBody);
   } else {
     debugRigidBody.setTranslation(new RAPIER.Vector3(position.x, position.y, position.z + zOffset), true);
+    debugRigidBody.collider(0)!.setRadius(radius);
   }
   return debugRigidBody;
 };
