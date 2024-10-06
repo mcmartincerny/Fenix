@@ -94,7 +94,7 @@ export class PlayerThirdPersonController implements StandardController {
     this.camera.getWorldDirection(rotationVect);
     rotationVect.z = 0;
     rotationVect.normalize();
-    const rotation = { x: rotationVect.x, y: rotationVect.y };
+    let rotation = { x: rotationVect.x, y: rotationVect.y };
     // Create a perpendicular vector to handle sideways movement (A/D keys)
     const rightVect = new Vector2(rotationVect.y, -rotationVect.x); // Rotate 90 degrees to get the 'right' vector
 
@@ -118,6 +118,11 @@ export class PlayerThirdPersonController implements StandardController {
     if (direction.length() > 0) {
       speed = this.pressedKeys.has("shift") ? RUN_SPEED : WALK_SPEED;
       direction.normalize(); // Normalize direction to maintain consistent speed
+
+      if (this.pressedKeys.has("shift")) {
+        // If running, rotate the player to face the direction they are moving
+        rotation = direction;
+      }
     }
 
     return { direction, rotation, speed, jump: this.pressedKeys.has(" ") };

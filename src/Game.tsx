@@ -225,15 +225,12 @@ const init = () => {
   scene.add(stairs);
 
   const destructibleBlock = new DestructibleBlock({
-    position: { x: 0, y: 0, z: 0 },
+    position: { x: 0, y: -0.5, z: 1.5 },
     size: { x: 2, y: 0.2, z: 2 },
     detail: 20,
   });
   scene.add(destructibleBlock);
   destructibleBlock.init();
-  setTimeout(() => {
-    destructibleBlock.position.set(0, -0.5, 1.5);
-  }, 100);
 
   let running = true;
   let previousTime: number;

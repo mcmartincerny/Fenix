@@ -34,6 +34,7 @@ import {
 } from "../helpers";
 
 const LEFT_LEG_X_OFFSET = 0.1;
+const ARM_Z_OFFSET = 0.05;
 export interface StandardController {
   getMovement(): {
     direction: { x: number; y: number };
@@ -128,16 +129,6 @@ export class Person extends BetterObject3D {
       const walkSpeedDirectionStatusModifier = toRange(dotBetweenFeetAndMovement, { min: MIN_CUT_OFF_FOR_WALK_IN_FEET_DIRECTION, max: 1 }, { min: 0, max: 1 });
       const MAX_DISTANCE_BETWEEN_TORSO_AND_FEET = 1.15;
       const verticalDistanceBetweenTorsoAndFeet = clamp(torsoPosition.z - averageFeetPosition.z, 0, MAX_DISTANCE_BETWEEN_TORSO_AND_FEET);
-      /*
-        const differenceBetweenTorsoAndFeet = new Vector3(torsoPosition).setZ(0).sub(averageFeetPosition.clone().setZ(0)).length();
-        const antigravFeetXYModifier = toRange(differenceBetweenTorsoAndFeet, { min: 0, max: 0.3 }, { min: 1, max: 0.5 });
-        const antigravFeetXYForce = 0.1;
-        // the smaller the distance the stronger the antigrav
-        const antigravFeetZmodifier = toRange(verticalDistanceBetweenTorsoAndFeet, { min: 0.5, max: MAX_DISTANCE_BETWEEN_TORSO_AND_FEET }, { min: 1, max: 0.7 });
-        const antigravFeetZForce = 0.2; // TODO maybe 0.3???
-        const antigrav = antigravFeetZForce * antigravFeetZmodifier + antigravFeetXYForce * antigravFeetXYModifier;
-        this.addTorsoGravity(-antigrav); // TODO: make the antigrav stronger based on the foot position
-      */
 
       let torsoHeightFromGround = castRayBelow(torsoPosition, 2);
       torsoHeightFromGround = torsoHeightFromGround === false ? 2 : torsoHeightFromGround; // TODO: Play with this - needed for stairs
@@ -218,7 +209,7 @@ export class Person extends BetterObject3D {
     }
 
     // move the higher foot to the position of torso + velocity offset
-    const higherFootXYForceKp = 0.007;
+    const higherFootXYForceKp = 0.01;
     const higherFootXYForceKd = 0.001;
     const torsoRotationQuat = this.torso.rigidBody!.rotation();
 
@@ -233,10 +224,10 @@ export class Person extends BetterObject3D {
       torsoXYVel.length(),
       lowerFootDistanceBeforeSwitchingFeet
     );
-
-    const higherFootIdealPositionWeirdOffset = rotateVectorAroundZ(
-      new Vector3(this.rightFeetWalking ? -LEFT_LEG_X_OFFSET : LEFT_LEG_X_OFFSET, higherFootIdealDistanceToTorso, higherFootIdealHeightDiff),
-      torsoYaw
+    const velocityYaw = Math.atan2(torsoXYVel.y, torsoXYVel.x) + Math.PI / 2;
+    const leftRightLegXRotatedOffset = rotateVectorAroundZ(new Vector3(this.rightFeetWalking ? -LEFT_LEG_X_OFFSET : LEFT_LEG_X_OFFSET, 0, 0), torsoYaw);
+    const higherFootIdealPositionWeirdOffset = rotateVectorAroundZ(new Vector3(0, higherFootIdealDistanceToTorso, higherFootIdealHeightDiff), velocityYaw).add(
+      leftRightLegXRotatedOffset
     );
     const higherFootIdealPositionWithOffset = new Vector3(torsoXYPos).setZ(lowerFootPos.z).add(higherFootIdealPositionWeirdOffset);
     // const directionToIdealPosition = new Vector3(higherFootIdealPositionWithOffset).sub(new Vector3(higherFootPos)).setZ(0).normalize();
@@ -263,14 +254,12 @@ export class Person extends BetterObject3D {
     const HIGHER_LEG_ROTATE_FORCE = 0.001;
     const higherLeg = this.rightFeetWalking ? this.rightLeg.rigidBody! : this.leftLeg.rigidBody!;
     const higherLegRotateForce = higherFootIdealHeightDiff * HIGHER_LEG_ROTATE_FORCE;
-    const higherLegTorqueImpulse = new RAPIER.Vector3(-higherLegRotateForce, 0, 0);
+    const higherLegTorqueImpulse = new Vector3(-higherLegRotateForce, 0, 0);
     // rotate impulse based on torso rotation
-    const higherLegTorqueImpulseRotated = new RAPIER.Vector3(
-      higherLegTorqueImpulse.x * Math.cos(torsoYaw) - higherLegTorqueImpulse.y * Math.sin(torsoYaw),
-      higherLegTorqueImpulse.x * Math.sin(torsoYaw) + higherLegTorqueImpulse.y * Math.cos(torsoYaw),
-      higherLegTorqueImpulse.z
-    );
-    higherLeg.applyTorqueImpulse(higherLegTorqueImpulseRotated, true);
+    const higherLegTorqueImpulseRotated = rotateVectorAroundZ(higherLegTorqueImpulse, torsoYaw);
+    if (touchingGround) {
+      higherLeg.applyTorqueImpulse(higherLegTorqueImpulseRotated, true);
+    }
 
     if (touchingGround || closestRayDistance < IS_WALKING_RAY_DISTANCE * 3) {
       this.rightFoot.rigidBody!.setRotation(new RAPIER.Quaternion(0, 0, 0, 1), true);
@@ -385,14 +374,14 @@ export class Person extends BetterObject3D {
     const rightForearmJoint = world.createImpulseJoint(rightForearmJointData, this.rightForearm.rigidBody!, this.rightArm.rigidBody!, true);
     const leftArmJointData = RAPIER.JointData.generic(
       new Vector3(0, 0, this.leftArm.mainMesh!.geometry.boundingBox!.max.z),
-      new Vector3(this.leftArm.position.x / 1.2, 0, -this.torso.mainMesh!.geometry.boundingBox!.min.z),
+      new Vector3(this.leftArm.position.x / 1.2, 0, -this.torso.mainMesh!.geometry.boundingBox!.min.z - ARM_Z_OFFSET),
       new RAPIER.Vector3(1, 1, 1),
       JointAxesMask.LinX | JointAxesMask.LinY | JointAxesMask.LinZ | JointAxesMask.AngZ
     );
     const leftArmJoint = world.createImpulseJoint(leftArmJointData, this.leftArm.rigidBody!, this.torso.rigidBody!, true);
     const rightArmJointData = RAPIER.JointData.generic(
       new Vector3(0, 0, this.rightArm.mainMesh!.geometry.boundingBox!.max.z),
-      new Vector3(this.rightArm.position.x / 1.2, 0, -this.torso.mainMesh!.geometry.boundingBox!.min.z),
+      new Vector3(this.rightArm.position.x / 1.2, 0, -this.torso.mainMesh!.geometry.boundingBox!.min.z - ARM_Z_OFFSET),
       new RAPIER.Vector3(1, 1, 1),
       JointAxesMask.LinX | JointAxesMask.LinY | JointAxesMask.LinZ | JointAxesMask.AngZ
     );
@@ -421,19 +410,22 @@ export class BodyPart extends BetterObject3D {
     if (this instanceof Foot) {
       colider = world.createCollider(RAPIER.ColliderDesc.cuboid(boundingBox.y, boundingBox.y, boundingBox.z), this.rigidBody);
       colider.setFriction(0.3);
-      colider.setRestitution(0);
       colider.setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS);
       feetHandleIds.add(this.rigidBody!.handle);
     } else {
       colider = world.createCollider(RAPIER.ColliderDesc.capsule(boundingBox.z / 3, (boundingBox.x + boundingBox.y) / 2), this.rigidBody);
       colider.setRotationWrtParent({ x: 1, y: 0.0, z: 0.0, w: 1 });
-      colider.setRestitution(1);
     }
     if (this instanceof Calf) {
       colider.setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS);
       calfHandleIds.add(this.rigidBody!.handle);
+    } else if (this instanceof Arm || this instanceof Forearm) {
+      colider.setFriction(1);
+    } else if (this instanceof Head) {
+      colider.setFriction(1);
+      this.rigidBody!.setAngularDamping(1);
     }
-    // colider.setFriction(1); // TODO: add some friction
+    colider.setRestitution(0);
   }
 }
 
@@ -460,7 +452,7 @@ export class Head extends BodyPart {
 
   init() {
     super.init();
-    this.rigidBody!.setGravityScale(-1, false);
+    this.rigidBody!.setGravityScale(-1.0, false);
   }
 }
 
@@ -472,8 +464,8 @@ export class Arm extends BodyPart {
     const armGeometry = new ParametricGeometry(parametricCurvedCube(0.25, 0.09, 0.09, 0.2), 50, 20);
     const armMesh = new Mesh(armGeometry, material);
     // this.rotation.y = -(Math.PI / 6) * side;
-    this.position.x = 0.22 * side;
-    this.position.z = 0.15;
+    this.position.x = 0.25 * side; // 0.22 originally
+    this.position.z = ARM_Z_OFFSET; // 0.15 originally
     this.addMainMesh(armMesh);
   }
 }

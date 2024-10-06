@@ -11,9 +11,11 @@ import {
   Vector3Like,
 } from "three";
 import { BetterObject3D } from "./BetterObject3D";
-import { gui } from "../Globals";
+import { gui, world } from "../Globals";
 import { clamp, debugRigidBody, toRange, Vector3 } from "../helpers";
 import { generateNoiseTexture } from "../texturesAndMaps/firstStuff";
+import RAPIER, { TriMesh } from "@dimforge/rapier3d-compat";
+import { createTrimeshColiderForMesh } from "./Shapes";
 
 const guiHelper = { impactX: 0, impactY: -0.1, impactZ: 0, force: 0.2, radius: 0.4, directionX: 0, directionY: 1, directionZ: 0 };
 
@@ -31,6 +33,7 @@ export class DestructibleBlock extends BetterObject3D {
   blockIndices: number[];
   mainMesh: Mesh;
   boundingBox: Box3;
+  collider: RAPIER.Collider;
   constructor({ position, size, detail }: DestructibleBlockProps) {
     super();
     this.position.set(position.x, position.y, position.z);
@@ -54,6 +57,9 @@ export class DestructibleBlock extends BetterObject3D {
     const mesh = new Mesh(geometry, material);
     this.add(mesh);
     this.mainMesh = mesh;
+    this.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(position.x, position.y, position.z));
+    this.collider = world.createCollider(createTrimeshColiderForMesh(mesh), this.rigidBody);
+
     gui.add(guiHelper, "impactX", -2, 2);
     gui.add(guiHelper, "impactY", -2, 2);
     gui.add(guiHelper, "impactZ", -2, 2);
@@ -70,6 +76,10 @@ export class DestructibleBlock extends BetterObject3D {
     gui.add(material.color, "r", 0, 1).onChange(() => (material.needsUpdate = true));
     gui.add(material.color, "g", 0, 1).onChange(() => (material.needsUpdate = true));
     gui.add(material.color, "b", 0, 1).onChange(() => (material.needsUpdate = true));
+  }
+
+  updateColiderShape() {
+    this.collider.setShape(new TriMesh(new Float32Array(this.blockVertices), new Uint32Array(this.blockIndices)));
   }
 
   impact({ impactX, impactY, impactZ, force, radius, directionX, directionY, directionZ }: typeof guiHelper) {
@@ -114,6 +124,7 @@ export class DestructibleBlock extends BetterObject3D {
       this.mainMesh.geometry.setIndex(new BufferAttribute(new Uint16Array(this.blockIndices), 1));
     }
     this.mainMesh.geometry.computeVertexNormals();
+    this.updateColiderShape();
   }
 
   getStartingIndicesForVertexI(vertexIndex: number) {
