@@ -236,13 +236,30 @@ const init = () => {
   }
   const { stairs } = createStairsWithColider({ length: 2.5, width: 2, height: 2, steps: 10, solidBottom: false }, [0.5, 1, 0]);
   scene.add(stairs);
+
   const destructibleBlock = new DestructibleBlock({
-    position: { x: -1, y: 2, z: 1.5 },
-    size: { x: 2, y: 0.2, z: 2 },
+    position: { x: -1, y: 1, z: 2.5 },
+    size: { x: 4, y: 0.2, z: 4 },
     detail: 20,
   });
   scene.add(destructibleBlock);
   destructibleBlock.init();
+
+  const destructibleBlock2 = new DestructibleBlock({
+    position: { x: 4, y: 5, z: 8 },
+    size: { x: 0.2, y: 6, z: 20 },
+    detail: 20,
+  });
+  scene.add(destructibleBlock2);
+  destructibleBlock2.init();
+
+  const destructibleBlock3 = new DestructibleBlock({
+    position: { x: 8, y: 5, z: 8 },
+    size: { x: 0.2, y: 6, z: 20 },
+    detail: 20,
+  });
+  scene.add(destructibleBlock3);
+  destructibleBlock3.init();
 
   let running = true;
   let previousTime: number;

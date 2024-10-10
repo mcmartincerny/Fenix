@@ -17,9 +17,16 @@ export const MainMenu = (props: MainMenuProps) => {
         setShowSettings(false);
       }
     }
+    function pointerLockChangeListener() {
+      if (document.pointerLockElement === null) {
+        setVisible(true);
+      }
+    }
     document.addEventListener("keydown", handleKeyPress);
+    document.addEventListener("pointerlockchange", pointerLockChangeListener);
     return () => {
       document.removeEventListener("keydown", handleKeyPress);
+      document.removeEventListener("pointerlockchange", pointerLockChangeListener);
     };
   }, []);
 

@@ -67,6 +67,7 @@ export class DestructibleBlock extends BetterObject3D {
     this.mainMesh = mesh;
     this.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(position.x, position.y, position.z));
     this.collider = world.createCollider(createTrimeshColiderForMesh(mesh), this.rigidBody);
+    this.collider.setRestitution(1);
     this.initialVolume = this.collider.volume();
 
     gui.add(guiHelper, "impactX", -2, 2);

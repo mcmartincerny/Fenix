@@ -96,9 +96,11 @@ export class Person extends BetterObject3D {
     this.torso.rigidBody!.setGravityScale(averageGrav, true);
   }
 
+  barrelRollEnabled = true;
   rightFeetWalking = false;
   lastFeetSwitch = 0;
   lastJump = 0;
+  jumpDelay = 400;
   // lastTouchingGround = 0;
   beforeUpdate(): void {
     const tBody = this.torso.rigidBody!;
@@ -148,7 +150,7 @@ export class Person extends BetterObject3D {
       const walkSpeedModifier = 0.0007; // TODO: calculate this from the status of the person
       const walkModifiedSpeed = contMov.speed * walkSpeedModifier * clamp(walkSpeedStatusModifier + walkSpeedDirectionStatusModifier, 0, 1);
       let jumpSpeed = 0;
-      if (contMov.jump && this.lastJump + 1000 < Date.now() && verticalDistanceBetweenTorsoAndFeet > 0.5) {
+      if (contMov.jump && this.lastJump + this.jumpDelay < Date.now() && verticalDistanceBetweenTorsoAndFeet > 0.5) {
         this.lastJump = Date.now();
         jumpSpeed = 0.4; // TODO: calculate this from the status of the person but not from height - we've been there already
         // TODO: also add direction of the walk to the jump
@@ -156,6 +158,14 @@ export class Person extends BetterObject3D {
         const jumpX = contMov.direction.x * directionalJumpSpeed;
         const jumpY = contMov.direction.y * directionalJumpSpeed;
         tBody.applyImpulse(new RAPIER.Vector3(jumpX, jumpY, jumpSpeed), true);
+
+        if (this.barrelRollEnabled) {
+          const barrelRollForce = 0.06;
+          const rollX = -contMov.direction.y * barrelRollForce;
+          const rollY = contMov.direction.x * barrelRollForce;
+          const barrelRollTorque = new RAPIER.Vector3(rollX, rollY, 0);
+          tBody.applyTorqueImpulse(barrelRollTorque, true);
+        }
       }
       const walkTotalSpeedX = contMov.direction.x * walkModifiedSpeed;
       const walkTotalSpeedY = contMov.direction.y * walkModifiedSpeed;
@@ -166,6 +176,60 @@ export class Person extends BetterObject3D {
         const dampingForceMultiplier = 0.0001;
         const dampingForce = new Vector3(tBody.linvel()).setZ(0).multiplyScalar(-dampingForceMultiplier);
         tBody.applyImpulse(dampingForce, true);
+      }
+    } else {
+      // if the torso will hit the ground soon, rotate it and position feet so it will land on the feet
+      const torsoLinVel = new Vector3(tBody.linvel());
+      const velLen = torsoLinVel.length();
+      const velLengthMultiplier = 0.3;
+      const len = velLen * velLengthMultiplier;
+      const ray = castRay(torsoPosition, torsoLinVel, len);
+      if (ray) {
+        const rayPos = new Vector3(torsoPosition).add(new Vector3(torsoLinVel).multiplyScalar(ray));
+        debugRigidBody(rayPos, "rayPos", 0.1);
+        // position the feet on the ray position
+        const rollFeetKp = 0.0003;
+        const leftFootPos = new Vector3(this.leftFoot.rigidBody!.translation());
+        const rightFootPos = new Vector3(this.rightFoot.rigidBody!.translation());
+        const leftFootToRay = new Vector3(rayPos).sub(leftFootPos);
+        const rightFootToRay = new Vector3(rayPos).sub(rightFootPos);
+        const leftFootToRayLen = leftFootToRay.length();
+        const rightFootToRayLen = rightFootToRay.length();
+        const leftFootToRayNormalized = leftFootToRay.normalize();
+        const rightFootToRayNormalized = rightFootToRay.normalize();
+        const leftFootToRayForce = leftFootToRayNormalized.multiplyScalar(leftFootToRayLen * rollFeetKp);
+        const rightFootToRayForce = rightFootToRayNormalized.multiplyScalar(rightFootToRayLen * rollFeetKp);
+        this.leftFoot.rigidBody!.applyImpulse(leftFootToRayForce, true);
+        this.rightFoot.rigidBody!.applyImpulse(rightFootToRayForce, true);
+
+        const torsoXYVelLength = new Vector3(torsoLinVel.x, torsoLinVel.y, 0).length();
+        const minTorsoXYVelLengthForWallBounce = 0.5;
+        if (contMov.jump && this.lastJump + this.jumpDelay < Date.now() && torsoXYVelLength > minTorsoXYVelLengthForWallBounce) {
+          const maxFeetDistance = 0.05;
+          const lFeetPos = new Vector3(this.leftFoot.rigidBody!.translation());
+          const rFeetPos = new Vector3(this.rightFoot.rigidBody!.translation());
+          const leftFeetRay = castRay(lFeetPos, new Vector3(tBody.linvel().x, tBody.linvel().y, 0), maxFeetDistance);
+          const rightFeetRay = castRay(rFeetPos, new Vector3(tBody.linvel().x, tBody.linvel().y, 0), maxFeetDistance);
+          if (leftFeetRay || rightFeetRay) {
+            this.lastJump = Date.now();
+            const bounceForce = 0.3;
+            const jumpForce = 0.4;
+            const bounceForceVector = torsoLinVel.clone().setZ(0).normalize().multiplyScalar(-bounceForce).setZ(jumpForce);
+            // stop the torso movement before applying the bounce force
+            tBody.setLinvel(new Vector3(0, 0, 0), true);
+            tBody.applyImpulse(bounceForceVector, true);
+            // stop rotation after the bounce
+            const previousAngularDamping = tBody.angularDamping();
+            tBody.setAngularDamping(100);
+            this.leftFoot.rigidBody!.setAngularDamping(100);
+            this.rightFoot.rigidBody!.setAngularDamping(100);
+            setTimeout(() => {
+              tBody.setAngularDamping(previousAngularDamping);
+              this.leftFoot.rigidBody!.setAngularDamping(previousAngularDamping);
+              this.rightFoot.rigidBody!.setAngularDamping(previousAngularDamping);
+            }, 300);
+          }
+        }
       }
     }
 
@@ -190,14 +254,17 @@ export class Person extends BetterObject3D {
         lowerFootPos = lowerFoot.translation();
       }
     }
-    const normalColor = 0x2ecc71;
-    const walkingColor = 0x206c10;
-    (this.rightFoot.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? walkingColor : normalColor);
-    (this.leftFoot.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? normalColor : walkingColor);
-    (this.rightCalf.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? walkingColor : normalColor);
-    (this.leftCalf.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? normalColor : walkingColor);
-    (this.rightLeg.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? walkingColor : normalColor);
-    (this.leftLeg.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? normalColor : walkingColor);
+
+    // walking leg visual feedback
+
+    // const normalColor = 0x2ecc71;
+    // const walkingColor = 0x206c10;
+    // (this.rightFoot.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? walkingColor : normalColor);
+    // (this.leftFoot.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? normalColor : walkingColor);
+    // (this.rightCalf.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? walkingColor : normalColor);
+    // (this.leftCalf.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? normalColor : walkingColor);
+    // (this.rightLeg.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? walkingColor : normalColor);
+    // (this.leftLeg.mainMesh!.material as MeshToonMaterial).color.set(this.rightFeetWalking ? normalColor : walkingColor);
 
     // stabilize the lower foot in it's position
     // damped the foot velocity
@@ -393,10 +460,9 @@ export class Person extends BetterObject3D {
 }
 
 export class BodyPart extends BetterObject3D {
-  mainMesh?: Mesh;
   addMainMesh(mesh: Mesh) {
     this.mainMesh = mesh;
-    (mesh.material as MeshStandardMaterial).wireframe = true;
+    // (mesh.material as MeshStandardMaterial).wireframe = true;
     this.add(mesh);
   }
   init() {
