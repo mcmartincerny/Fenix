@@ -91,6 +91,7 @@ const ApplyAndDiscardButtons = ({ closeSettings, reloadGame }: SettingsProps) =>
           const changesRequireReload = applySettings();
           if (changesRequireReload) {
             reloadGame();
+            closeSettings();
           } else {
             closeSettings();
           }

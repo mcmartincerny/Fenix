@@ -331,7 +331,8 @@ const SliderWithNumberInputWrapper = styled.div`
 
 const Slider = styled.input`
   width: 100%;
-  -webkit-appearance: none; // TODO: check firefox
+  -webkit-appearance: none;
+  -moz-appearance: none;
   margin: 0px;
   height: 30px;
   outline: none;
@@ -347,6 +348,9 @@ const Slider = styled.input`
   &::-webkit-slider-runnable-track {
     margin: 3px;
   }
+  &::-moz-range-track {
+    margin: 3px;
+  }
 
   &::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -355,6 +359,14 @@ const Slider = styled.input`
     height: 24px;
     border-radius: 4px;
     background-color: ${theme.colors.green};
+    cursor: pointer;
+  }
+  &::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    background-color: ${theme.colors.green};
+    border: none;
     cursor: pointer;
   }
 `;
