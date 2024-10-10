@@ -1,9 +1,11 @@
 import RAPIER from "@dimforge/rapier3d-compat";
-import { Object3D } from "three";
+import { Mesh, Object3D } from "three";
 import { world } from "../Globals";
 
 export class BetterObject3D extends Object3D {
   rigidBody?: RAPIER.RigidBody;
+  mainMesh?: Mesh;
+  isDisposed = false;
   initialized = false;
   constructor() {
     super();
@@ -55,14 +57,28 @@ export class BetterObject3D extends Object3D {
     objects.forEach((object) => this.add(object));
   }
 
-  dispose() {
+  dispose(removeFromParent = true) {
     if (this.rigidBody) {
       world.removeRigidBody(this.rigidBody);
+    }
+    if (this.mainMesh) {
+      this.mainMesh.geometry.dispose();
+      if (Array.isArray(this.mainMesh.material)) {
+        this.mainMesh.material.forEach((material) => material.dispose());
+      } else {
+        this.mainMesh.material.dispose();
+      }
+      this.mainMesh.clear();
+      this.mainMesh.removeFromParent();
     }
     this.children.forEach((child) => {
       if (child instanceof BetterObject3D) {
         child.dispose();
       }
     });
+    if (removeFromParent) {
+      this.removeFromParent();
+    }
+    this.isDisposed = true;
   }
 }

@@ -3,6 +3,7 @@ import {
   BufferAttribute,
   BufferGeometry,
   DoubleSide,
+  Material,
   Mesh,
   MeshBasicMaterial,
   MeshNormalMaterial,
@@ -32,17 +33,23 @@ export class DestructibleBlock extends BetterObject3D {
   blockVertices: number[];
   blockIndices: number[];
   mainMesh: Mesh;
+  geometry: BufferGeometry;
+  material: Material;
   boundingBox: Box3;
   collider: RAPIER.Collider;
+  initialVolume: number;
+  volumeReductionBeforeBreak = 0.5;
   constructor({ position, size, detail }: DestructibleBlockProps) {
     super();
     this.position.set(position.x, position.y, position.z);
     this.size = size;
     this.detail = detail;
-    const { geometry, vertices, indices } = createCustomBoxGeometry(size, detail);
+    // first create the geometry with detail 1 and then update it with the detail when the impact happens
+    const { geometry, vertices, indices } = createCustomBoxGeometry(size, 1);
+    this.geometry = geometry!;
     this.blockIndices = indices;
-    geometry.computeBoundingBox();
-    this.boundingBox = geometry.boundingBox!;
+    geometry!.computeBoundingBox();
+    this.boundingBox = geometry!.boundingBox!;
     this.blockVertices = vertices;
     const material = new MeshStandardMaterial({
       color: 0xf0e050,
@@ -50,6 +57,7 @@ export class DestructibleBlock extends BetterObject3D {
       roughness: 0.4,
       // map: generateNoiseTexture(500, 500)
     });
+    this.material = material;
     material.side = DoubleSide;
     material.flatShading = true;
     material.needsUpdate = true;
@@ -59,6 +67,7 @@ export class DestructibleBlock extends BetterObject3D {
     this.mainMesh = mesh;
     this.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(position.x, position.y, position.z));
     this.collider = world.createCollider(createTrimeshColiderForMesh(mesh), this.rigidBody);
+    this.initialVolume = this.collider.volume();
 
     gui.add(guiHelper, "impactX", -2, 2);
     gui.add(guiHelper, "impactY", -2, 2);
@@ -68,7 +77,7 @@ export class DestructibleBlock extends BetterObject3D {
     gui.add(guiHelper, "directionX", -1, 1);
     gui.add(guiHelper, "directionY", -1, 1);
     gui.add(guiHelper, "directionZ", -1, 1);
-    gui.add({ impact: () => this.impact(guiHelper) }, "impact");
+    gui.add({ impact: () => !this.isDisposed && this.impact(guiHelper) }, "impact");
     gui.add(material, "flatShading").onChange(() => (material.needsUpdate = true));
     gui.add(material, "wireframe").onChange(() => (material.needsUpdate = true));
     gui.add(material, "metalness", 0, 1).onChange(() => (material.needsUpdate = true));
@@ -78,11 +87,29 @@ export class DestructibleBlock extends BetterObject3D {
     gui.add(material.color, "b", 0, 1).onChange(() => (material.needsUpdate = true));
   }
 
+  destruct() {
+    // TODO: spawn some debris
+    this.dispose();
+  }
+
   updateColiderShape() {
     this.collider.setShape(new TriMesh(new Float32Array(this.blockVertices), new Uint32Array(this.blockIndices)));
   }
 
+  notImpactedBefore = true;
   impact({ impactX, impactY, impactZ, force, radius, directionX, directionY, directionZ }: typeof guiHelper) {
+    if (this.notImpactedBefore) {
+      this.notImpactedBefore = false;
+      const { vertices, indices, uvs } = createCustomBoxGeometry(this.size, this.detail, false);
+      this.geometry.setAttribute("position", new BufferAttribute(new Float32Array(vertices), 3));
+      this.geometry.setIndex(new BufferAttribute(new Uint16Array(indices), 1));
+      this.geometry.setAttribute("uv", new BufferAttribute(new Float32Array(uvs), 2));
+      this.geometry.computeVertexNormals();
+      this.blockVertices = vertices;
+      this.blockIndices = indices;
+      this.updateColiderShape();
+      // TODO: fix not flatShading
+    }
     const impactPosition = new Vector3(impactX, impactY, impactZ);
     debugRigidBody(new Vector3(impactX, impactY, impactZ).add(this.position), "impact", 0, radius);
     const reuseableVector = new Vector3();
@@ -125,6 +152,9 @@ export class DestructibleBlock extends BetterObject3D {
     }
     this.mainMesh.geometry.computeVertexNormals();
     this.updateColiderShape();
+    if (this.collider.volume() < this.initialVolume * this.volumeReductionBeforeBreak) {
+      this.destruct();
+    }
   }
 
   getStartingIndicesForVertexI(vertexIndex: number) {
@@ -170,7 +200,7 @@ export class DestructibleBlock extends BetterObject3D {
   }
 }
 
-function createCustomBoxGeometry(size: Vector3Like, detail = 1) {
+function createCustomBoxGeometry(size: Vector3Like, detail = 1, withGeometry = true) {
   const width = size.x;
   const height = size.y;
   const depth = size.z;
@@ -229,6 +259,10 @@ function createCustomBoxGeometry(size: Vector3Like, detail = 1) {
   buildPlane(0, 2, 1, 1, 1, width, depth, height, detailX, detailZ);
   buildPlane(0, 2, 1, 1, -1, width, depth, -height, detailX, detailZ);
 
+  if (!withGeometry) {
+    return { vertices, indices, uvs };
+  }
+
   // Convert vertices and indices to typed arrays
   const verticesArray = new Float32Array(vertices);
   const indicesArray = new Uint16Array(indices);
@@ -242,5 +276,5 @@ function createCustomBoxGeometry(size: Vector3Like, detail = 1) {
   // Compute the normals
   geometry.computeVertexNormals();
 
-  return { geometry, vertices, indices };
+  return { geometry, vertices, indices, uvs };
 }

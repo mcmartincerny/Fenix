@@ -4,7 +4,7 @@ import { BufferAttribute, BufferGeometry, LineBasicMaterial, LineSegments, Scene
 export class RapierDebugRenderer {
   mesh;
   world;
-  enabled = true;
+  enabled = false;
 
   constructor(scene: Scene, world: World) {
     this.world = world;

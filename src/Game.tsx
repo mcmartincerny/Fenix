@@ -41,6 +41,7 @@ import { log, resetDebugRigidBodies } from "./helpers";
 import { createPrismWithColider, createStairsWithColider } from "./objects/Shapes";
 import { CameraSwitcher, CameraType } from "./cameras/CameraSwitcher";
 import { DestructibleBlock } from "./objects/DestructibleBlock";
+import { MainMenu } from "./ui/MainMenu";
 
 await RAPIER.init();
 
@@ -54,31 +55,43 @@ const testCubesGuiHelper = {
 export const Game = () => {
   //TODO: RAM increases every reset - memory leak
   const [reset, setReset] = useState(false);
+
   useEffect(init, [reset]);
 
   useEffect(() => {
-    const resetF = (e: KeyboardEvent) => {
+    const keyDownListener = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === "r") {
         setReset((r) => !r);
         document.exitPointerLock();
       }
     };
-    document.addEventListener("keydown", resetF);
+    document.addEventListener("keydown", keyDownListener);
     stats.showPanel(0);
     (stats.dom.children[1] as HTMLElement).style.display = "block";
     document.body.appendChild(stats.dom);
     return () => {
       document.body.removeChild(stats.dom);
-      document.removeEventListener("keydown", resetF);
+      document.removeEventListener("keydown", keyDownListener);
     };
   }, []);
 
-  return <canvas id="gameCanvas" />;
+  return (
+    <>
+      <canvas id="gameCanvas" />
+      <MainMenu
+        reloadGame={() => {
+          setReset(!reset);
+        }}
+      />
+    </>
+  );
 };
 
 const init = () => {
   console.log("init");
   const gui = new GUI();
+  gui.$title.textContent = "Debug";
+  gui.close();
   setGui(gui);
   const canvas = document.querySelector("#gameCanvas") as HTMLCanvasElement;
   const renderer = new WebGLRenderer({ antialias: true, canvas, alpha: true }); // TODO: settings
@@ -223,9 +236,8 @@ const init = () => {
   }
   const { stairs } = createStairsWithColider({ length: 2.5, width: 2, height: 2, steps: 10, solidBottom: false }, [0.5, 1, 0]);
   scene.add(stairs);
-
   const destructibleBlock = new DestructibleBlock({
-    position: { x: 0, y: -0.5, z: 1.5 },
+    position: { x: -1, y: 2, z: 1.5 },
     size: { x: 2, y: 0.2, z: 2 },
     detail: 20,
   });
@@ -264,9 +276,6 @@ const init = () => {
     resizeRendererToDisplaySize(renderer, cameraSwitcher.camera);
     renderer.render(scene, cameraSwitcher.camera);
     stats.end();
-    log(`Make it into a loot it game. Two or three teams on a map with buildings where 
-      is loot and dangers. Each team has some base - maybe a van? Maybe movable? Where they can store loot and respawn.
-      Game ends in 10m or after some respawn points and which team has the most loot wins.`);
   };
   animate(0);
 
@@ -303,7 +312,7 @@ function destroySceneObjects(scene: Scene) {
   scene.traverse((object) => {
     console.log("disposing", object);
     if (hasDispose(object)) {
-      object.dispose();
+      object.dispose(false);
     }
 
     if (!isMesh(object)) return;
@@ -329,7 +338,7 @@ function destroySceneObjects(scene: Scene) {
   }
 }
 
-function hasDispose(object: any): object is { dispose: () => void } {
+function hasDispose(object: any): object is { dispose: (...args: any) => void } {
   return object && object.dispose;
 }
 
