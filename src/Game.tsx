@@ -24,6 +24,7 @@ import {
   ReinhardToneMapping,
   Scene,
   SphereGeometry,
+  Vector2,
   WebGLRenderer,
 } from "three";
 
@@ -34,15 +35,19 @@ import RAPIER, { EventQueue } from "@dimforge/rapier3d-compat";
 import { RapierDebugRenderer } from "./Debug";
 import GUI from "lil-gui";
 import { BetterObject3D } from "./objects/BetterObject3D";
-import { setGui, setWorld } from "./Globals";
-import { PlayerTopDownController } from "./controllers/PlayerController";
+import { setGui, setOutlinePass, setWorld } from "./Globals";
 import { PhysicsHooks } from "./PhysicsHooks";
 import { log, resetDebugRigidBodies } from "./helpers";
-import { createPrismWithColider, createStairsWithColider, PipeGeometry } from "./objects/Shapes";
+import { createPrismWithColider, createStairsWithColider } from "./objects/Shapes";
 import { CameraSwitcher, CameraType } from "./cameras/CameraSwitcher";
 import { DestructibleBlock } from "./objects/DestructibleBlock";
 import { MainMenu } from "./ui/MainMenu";
 import { Pistol } from "./objects/weapons/Pistol";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { PlayerTopDownController } from "./controllers/PlayerController";
 
 await RAPIER.init();
 
@@ -95,8 +100,32 @@ const init = () => {
   gui.close();
   setGui(gui);
   const canvas = document.querySelector("#mainCanvas") as HTMLCanvasElement;
+  const scene = new Scene();
+  const person = new Person(new PlayerTopDownController());
+  const cameraSwitcher = new CameraSwitcher(canvas, person.torso);
+  const camera = cameraSwitcher.camera;
   const renderer = new WebGLRenderer({ antialias: true, canvas, alpha: true }); // TODO: settings
   renderer.setPixelRatio(2); // TODO: settings
+  const composer = new EffectComposer(renderer);
+  composer.setPixelRatio(2); // TODO: settings
+  const renderPass = new RenderPass(scene, camera);
+  composer.addPass(renderPass);
+
+  const outlinePass = new OutlinePass(new Vector2(canvas.clientWidth, canvas.clientHeight), scene, camera);
+  setOutlinePass(outlinePass);
+  outlinePass.edgeStrength = 3.0;
+  outlinePass.edgeGlow = 1.0;
+  outlinePass.edgeThickness = 3.0;
+  outlinePass.pulsePeriod = 0;
+  outlinePass.usePatternTexture = false;
+  outlinePass.visibleEdgeColor.set("#ffffff");
+  outlinePass.hiddenEdgeColor.set("#858585");
+  // outlinePass.selectedObjects = [person];
+  composer.addPass(outlinePass);
+
+  const outputPass = new OutputPass();
+  composer.addPass(outputPass);
+
   const toneMappingOptions = [
     NoToneMapping,
     LinearToneMapping,
@@ -128,8 +157,6 @@ const init = () => {
       console.log("Output color space set to", outputColorSpaces[outputColorSpaceIndex]);
     }
   });
-
-  const scene = new Scene();
 
   const world = new RAPIER.World({ x: 0.0, y: 0.0, z: -9.81 });
   setWorld(world);
@@ -202,12 +229,10 @@ const init = () => {
   const hemisphereLight = new HemisphereLight(0xffffff, 0x444444, 0.1);
   scene.add(hemisphereLight);
 
-  const person = new Person(new PlayerTopDownController());
   person.position.z = 3;
   scene.add(person);
   person.init();
 
-  const cameraSwitcher = new CameraSwitcher(canvas, person.torso);
   gui
     .add({}, "dummy", CameraType)
     .name("Camera type")
@@ -262,7 +287,7 @@ const init = () => {
   scene.add(destructibleBlock3);
   destructibleBlock3.init();
 
-  const pistol = new Pistol({ position: { x: 0, y: 0, z: 2 } });
+  const pistol = new Pistol({ position: { x: 0, y: -1, z: 2 } });
   scene.add(pistol);
   pistol.init();
 
@@ -295,8 +320,9 @@ const init = () => {
     cameraSwitcher.afterStep();
 
     rapierDebugRenderer.update();
-    resizeRendererToDisplaySize(renderer, cameraSwitcher.camera);
-    renderer.render(scene, cameraSwitcher.camera);
+    resizeRendererToDisplaySize(renderer, composer, cameraSwitcher.camera);
+    // renderer.render(scene, cameraSwitcher.camera);
+    composer.render();
     stats.end();
   };
   animate(0);
@@ -315,7 +341,7 @@ const init = () => {
 
 let previousAspectRatio = 0;
 
-const resizeRendererToDisplaySize = (renderer: WebGLRenderer, camera: PerspectiveCamera) => {
+const resizeRendererToDisplaySize = (renderer: WebGLRenderer, composer: EffectComposer, camera: PerspectiveCamera) => {
   const canvas = renderer.domElement;
   const pixelRatio = window.devicePixelRatio;
   const width = Math.floor(canvas.clientWidth * pixelRatio);
@@ -325,6 +351,7 @@ const resizeRendererToDisplaySize = (renderer: WebGLRenderer, camera: Perspectiv
   previousAspectRatio = aspect;
   if (needResize) {
     renderer.setSize(width, height, false);
+    composer.setSize(width, height);
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
   }

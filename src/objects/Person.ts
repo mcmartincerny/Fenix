@@ -11,11 +11,11 @@ import {
   Vector3 as Vector3Class,
   Vector3Like,
 } from "three";
-import { BetterObject3D } from "./BetterObject3D";
+import { BetterObject3D, getNearestPickable } from "./BetterObject3D";
 import { ParametricGeometry } from "three/addons/geometries/ParametricGeometry.js";
 import { generateGradientMap } from "../texturesAndMaps/firstStuff";
 import RAPIER, { GenericImpulseJoint, JointAxesMask } from "@dimforge/rapier3d-compat";
-import { calfHandleIds, feetHandleIds, world } from "../Globals";
+import { calfHandleIds, feetHandleIds, outlinePass, world } from "../Globals";
 import {
   castRay,
   castRayBelow,
@@ -367,6 +367,22 @@ export class Person extends BetterObject3D {
     const modifiedPulse = pulse * rotateWhileStandingModifier;
 
     tBody.applyTorqueImpulse(new RAPIER.Vector3(0, 0, modifiedPulse), true);
+  }
+
+  lastSelectedObject: BetterObject3D | null = null;
+  after30Updates(): void {
+    const obj = getNearestPickable(this.torso.rigidBody!.translation());
+    if (this.lastSelectedObject === obj) {
+      return;
+    }
+    if (this.lastSelectedObject) {
+      outlinePass!.selectedObjects = outlinePass!.selectedObjects.filter((o) => o !== this.lastSelectedObject);
+      this.lastSelectedObject = null;
+    }
+    if (obj) {
+      this.lastSelectedObject = obj;
+      outlinePass!.selectedObjects.push(obj);
+    }
   }
 
   setupJoints() {

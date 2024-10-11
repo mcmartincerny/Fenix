@@ -8,6 +8,8 @@ export interface WeaponProps {
 }
 
 export class Weapon extends BetterObject3D {
+  rigidBody: RAPIER.RigidBody;
+  pickable = true;
   constructor(props: WeaponProps) {
     super();
     const { position } = props;

@@ -1,12 +1,15 @@
 import RAPIER from "@dimforge/rapier3d-compat";
-import { Mesh, Object3D } from "three";
+import { Mesh, Object3D, Vector3Like } from "three";
 import { world } from "../Globals";
+import { Vector3 } from "../helpers";
+
+const pickableObjects: Set<BetterObject3D> = new Set();
 
 export class BetterObject3D extends Object3D {
   rigidBody?: RAPIER.RigidBody;
   mainMesh?: Mesh;
-  isDisposed = false;
   initialized = false;
+  pickable = false;
   constructor() {
     super();
     setTimeout(() => {
@@ -18,6 +21,9 @@ export class BetterObject3D extends Object3D {
 
   init() {
     this.initialized = true;
+    if (this.pickable) {
+      pickableObjects.add(this);
+    }
     this.children.forEach((child) => {
       if (child instanceof BetterObject3D) {
         child.init();
@@ -35,14 +41,21 @@ export class BetterObject3D extends Object3D {
     this.beforeUpdate();
   }
 
+  updateCounter = 0;
   afterStep() {
     this.afterUpdate();
+    this.updateCounter++;
+    if (this.updateCounter % 30 === 0) {
+      this.after30Updates();
+    }
     this.updatePhysics();
   }
 
   beforeUpdate() {}
 
   afterUpdate() {}
+
+  after30Updates() {}
 
   firstUpdateDone = false;
   updatePhysics() {
@@ -79,6 +92,24 @@ export class BetterObject3D extends Object3D {
     if (removeFromParent) {
       this.removeFromParent();
     }
-    this.isDisposed = true;
+    if (this.pickable) {
+      pickableObjects.delete(this);
+    }
   }
 }
+
+export const getNearestPickable = (position: Vector3Like, maxDistance = 1.5): BetterObject3D | null => {
+  const pos = new Vector3(position);
+  let nearest: BetterObject3D | null = null;
+  let nearestDistance = Infinity;
+  pickableObjects.forEach((object) => {
+    if (object !== this) {
+      const distance = pos.distanceTo(object.position);
+      if (distance < maxDistance && distance < nearestDistance) {
+        nearest = object;
+        nearestDistance = distance;
+      }
+    }
+  });
+  return nearest;
+};
