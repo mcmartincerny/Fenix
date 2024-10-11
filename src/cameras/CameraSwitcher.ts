@@ -26,7 +26,7 @@ export class CameraSwitcher {
   followingCamera?: TopDownCamera;
   thirdPersonCamera?: ThirdPersonCamera;
 
-  constructor(canvasElement: HTMLCanvasElement, cameraTarget: BetterObject3D, cameraType: CameraType = CameraType.ThirdPerson) {
+  constructor(canvasElement: HTMLCanvasElement, cameraTarget: BetterObject3D, cameraType: CameraType = CameraType.Free) {
     this.canvasElement = canvasElement;
     this.type = cameraType;
     this.cameraTarget = cameraTarget;

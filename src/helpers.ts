@@ -219,3 +219,7 @@ export const isBehindObjectInMovementXY = (rigidBody: RAPIER.RigidBody, position
   const distanceToPosPlusVel = pos.distanceTo(rigidBodyPosPlusVel);
   return distanceToPosPlusVel > distanceToRigidBody;
 };
+
+export const degToRad = (degrees: number) => {
+  return degrees * (Math.PI / 180);
+};

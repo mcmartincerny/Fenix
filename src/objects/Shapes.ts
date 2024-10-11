@@ -1,4 +1,17 @@
-import { ExtrudeGeometry, Mesh, MeshStandardMaterial, MeshToonMaterial, Shape, Vector2, Vector3Tuple } from "three";
+import {
+  BufferGeometry,
+  Curve,
+  CurvePath,
+  ExtrudeGeometry,
+  Mesh,
+  MeshStandardMaterial,
+  MeshToonMaterial,
+  Shape,
+  TubeGeometry,
+  Vector2,
+  Vector3,
+  Vector3Tuple,
+} from "three";
 import { generateGradientMap } from "../texturesAndMaps/firstStuff";
 import { world } from "../Globals";
 import RAPIER from "@dimforge/rapier3d-compat";
@@ -100,3 +113,33 @@ export const createTrimeshColiderForMesh = (mesh: Mesh): RAPIER.ColliderDesc => 
   const indices = geometry.getIndex()?.array as Uint32Array;
   return RAPIER.ColliderDesc.trimesh(vertices, indices)!;
 };
+
+interface PipeGeometryProps {
+  radius: number;
+  length: number;
+  segments: number;
+  closed: boolean;
+}
+
+export class PipeGeometry extends TubeGeometry {
+  constructor({ radius, length, segments, closed }: PipeGeometryProps) {
+    // const path = new Array(segments).fill(0).map((_, i) => [i * length, 0, 0]);
+    const path = new PipeCurve(length);
+    super(path, 50, radius, segments, closed);
+  }
+}
+
+class PipeCurve extends Curve<Vector3> {
+  constructor(public scale: number) {
+    super();
+  }
+  getPoint(t: number, optionalTarget?: Vector3 | undefined): Vector3 {
+    const tx = t * this.scale;
+    const ty = 0;
+    const tz = 0;
+    if (optionalTarget) {
+      return optionalTarget.set(tx, ty, tz);
+    }
+    return new Vector3(tx, ty, tz);
+  }
+}

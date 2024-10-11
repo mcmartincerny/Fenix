@@ -66,7 +66,7 @@ export class DestructibleBlock extends BetterObject3D {
     this.add(mesh);
     this.mainMesh = mesh;
     this.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(position.x, position.y, position.z));
-    this.collider = world.createCollider(createTrimeshColiderForMesh(mesh), this.rigidBody);
+    this.collider = world.createCollider(createTrimeshColiderForMesh(mesh), this.rigidBody); // TODO: Make the colider a cube at start - much better for not getting stuck in the wall
     this.collider.setRestitution(1);
     this.initialVolume = this.collider.volume();
 

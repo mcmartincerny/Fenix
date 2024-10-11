@@ -38,10 +38,11 @@ import { setGui, setWorld } from "./Globals";
 import { PlayerTopDownController } from "./controllers/PlayerController";
 import { PhysicsHooks } from "./PhysicsHooks";
 import { log, resetDebugRigidBodies } from "./helpers";
-import { createPrismWithColider, createStairsWithColider } from "./objects/Shapes";
+import { createPrismWithColider, createStairsWithColider, PipeGeometry } from "./objects/Shapes";
 import { CameraSwitcher, CameraType } from "./cameras/CameraSwitcher";
 import { DestructibleBlock } from "./objects/DestructibleBlock";
 import { MainMenu } from "./ui/MainMenu";
+import { Pistol } from "./objects/weapons/Pistol";
 
 await RAPIER.init();
 
@@ -77,7 +78,7 @@ export const Game = () => {
 
   return (
     <>
-      <canvas id="gameCanvas" />
+      <canvas id="mainCanvas" />
       <MainMenu
         reloadGame={() => {
           setReset(!reset);
@@ -93,7 +94,7 @@ const init = () => {
   gui.$title.textContent = "Debug";
   gui.close();
   setGui(gui);
-  const canvas = document.querySelector("#gameCanvas") as HTMLCanvasElement;
+  const canvas = document.querySelector("#mainCanvas") as HTMLCanvasElement;
   const renderer = new WebGLRenderer({ antialias: true, canvas, alpha: true }); // TODO: settings
   renderer.setPixelRatio(2); // TODO: settings
   const toneMappingOptions = [
@@ -260,6 +261,10 @@ const init = () => {
   });
   scene.add(destructibleBlock3);
   destructibleBlock3.init();
+
+  const pistol = new Pistol({ position: { x: 0, y: 0, z: 2 } });
+  scene.add(pistol);
+  pistol.init();
 
   let running = true;
   let previousTime: number;
