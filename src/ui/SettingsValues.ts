@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 export const settingsValuesDefaults = {
   Game: {
+    HideToolBar: { default: true, description: "Hide the toolbar at the bottom of the screen after not interacting for a few seconds" },
     ShowFPS: { default: "simple", options: ["simple", "detailed", "none"] },
     ShowRenderTime: { default: "none", options: ["simple", "detailed", "none"] },
   },

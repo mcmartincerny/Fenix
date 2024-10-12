@@ -11,7 +11,7 @@ import {
   Vector3 as Vector3Class,
   Vector3Like,
 } from "three";
-import { BetterObject3D, getNearestPickable } from "./BetterObject3D";
+import { BetterObject3D } from "./BetterObject3D";
 import { ParametricGeometry } from "three/addons/geometries/ParametricGeometry.js";
 import { generateGradientMap } from "../texturesAndMaps/firstStuff";
 import RAPIER, { GenericImpulseJoint, JointAxesMask } from "@dimforge/rapier3d-compat";
@@ -32,6 +32,7 @@ import {
   toRange,
   Vector3,
 } from "../helpers";
+import { PickableObject } from "./PickableObject";
 
 const LEFT_LEG_X_OFFSET = 0.1;
 const ARM_Z_OFFSET = 0.05;
@@ -371,7 +372,7 @@ export class Person extends BetterObject3D {
 
   lastSelectedObject: BetterObject3D | null = null;
   after30Updates(): void {
-    const obj = getNearestPickable(this.torso.rigidBody!.translation());
+    const obj = PickableObject.getNearestPickable(this.torso.rigidBody!.translation());
     if (this.lastSelectedObject === obj) {
       return;
     }
