@@ -14,7 +14,6 @@ import {
 import { BetterObject3D } from "./BetterObject3D";
 import { gui, world } from "../Globals";
 import { clamp, debugRigidBody, toRange, Vector3 } from "../helpers";
-import { generateNoiseTexture } from "../texturesAndMaps/firstStuff";
 import RAPIER, { TriMesh } from "@dimforge/rapier3d-compat";
 import { createTrimeshColiderForMesh } from "./Shapes";
 

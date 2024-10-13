@@ -18,6 +18,7 @@ import {
   MeshToonMaterial,
   NeutralToneMapping,
   NoToneMapping,
+  Object3D,
   PerspectiveCamera,
   PlaneGeometry,
   PointLight,
@@ -35,7 +36,7 @@ import RAPIER, { EventQueue } from "@dimforge/rapier3d-compat";
 import { RapierDebugRenderer } from "./Debug";
 import GUI from "lil-gui";
 import { BetterObject3D } from "./objects/BetterObject3D";
-import { setGui, setOutlinePass, setWorld } from "./Globals";
+import { setGui, setOutlinePass, setScene, setWorld } from "./Globals";
 import { PhysicsHooks } from "./PhysicsHooks";
 import { log, resetDebugRigidBodies } from "./helpers";
 import { createPrismWithColider, createStairsWithColider } from "./objects/Shapes";
@@ -48,6 +49,7 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { OutlinePass } from "three/addons/postprocessing/OutlinePass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { PlayerTopDownController } from "./controllers/PlayerController";
+import { PlayerInventoryUI } from "./inventory/ui/InventoryUI";
 
 await RAPIER.init();
 
@@ -61,8 +63,11 @@ const testCubesGuiHelper = {
 export const Game = () => {
   //TODO: RAM increases every reset - memory leak
   const [reset, setReset] = useState(false);
+  const [playerPerson, setPlayerPerson] = useState<Person>();
 
-  useEffect(init, [reset]);
+  useEffect(() => {
+    return init(setPlayerPerson);
+  }, [reset]);
 
   useEffect(() => {
     const keyDownListener = (e: KeyboardEvent) => {
@@ -84,6 +89,7 @@ export const Game = () => {
   return (
     <>
       <canvas id="mainCanvas" />
+      {playerPerson && <PlayerInventoryUI playerInventory={playerPerson.inventory} />}
       <MainMenu
         reloadGame={() => {
           setReset(!reset);
@@ -93,7 +99,7 @@ export const Game = () => {
   );
 };
 
-const init = () => {
+const init = (setPlayerPerson: (playerPerson: Person) => void) => {
   console.log("init");
   const gui = new GUI();
   gui.$title.textContent = "Debug";
@@ -101,6 +107,9 @@ const init = () => {
   setGui(gui);
   const canvas = document.querySelector("#mainCanvas") as HTMLCanvasElement;
   const scene = new Scene();
+  setScene(scene);
+  const world = new RAPIER.World({ x: 0.0, y: 0.0, z: -9.81 });
+  setWorld(world);
   const person = new Person(new PlayerTopDownController());
   const cameraSwitcher = new CameraSwitcher(canvas, person.torso);
   const camera = cameraSwitcher.camera;
@@ -157,9 +166,6 @@ const init = () => {
       console.log("Output color space set to", outputColorSpaces[outputColorSpaceIndex]);
     }
   });
-
-  const world = new RAPIER.World({ x: 0.0, y: 0.0, z: -9.81 });
-  setWorld(world);
 
   const rapierDebugRenderer = new RapierDebugRenderer(scene, world);
   gui.add(rapierDebugRenderer, "enabled").name("Show physics debug");
@@ -232,6 +238,7 @@ const init = () => {
   person.position.z = 3;
   scene.add(person);
   person.init();
+  setPlayerPerson(person);
 
   gui
     .add({}, "dummy", CameraType)
@@ -287,9 +294,11 @@ const init = () => {
   scene.add(destructibleBlock3);
   destructibleBlock3.init();
 
-  const pistol = new Pistol({ position: { x: 0, y: -1, z: 2 } });
-  scene.add(pistol);
-  pistol.init();
+  for (let i = 0; i < 100; i++) {
+    const pistol = new Pistol({ x: -0.5 + Math.random(), y: -1 + Math.random(), z: 6 });
+    scene.add(pistol);
+    pistol.init();
+  }
 
   let running = true;
   let previousTime: number;
@@ -297,7 +306,7 @@ const init = () => {
     if (!running) return;
     stats.begin();
     requestAnimationFrame(animate);
-    scene.traverse((object) => (object as BetterObject3D).beforeStep?.());
+    traverseObjects(scene, (object) => (object as BetterObject3D).beforeStep?.());
     cameraSwitcher.beforeStep();
     const cubeZ = testCubesGuiHelper.enabled ? 1 : -3;
     const cubePos = Math.sin(time * testCubesGuiHelper.speed) * 2.8;
@@ -338,6 +347,18 @@ const init = () => {
     console.log("cleanup complete");
   };
 };
+
+function traverseObjects(obj: Object3D, callback: (obj: Object3D) => void) {
+  callback(obj);
+  if (obj.children) {
+    const children = obj.children;
+    for (let i = 0, l = children.length; i < l; i++) {
+      if (children[i] != undefined) {
+        traverseObjects(children[i], callback);
+      }
+    }
+  }
+}
 
 let previousAspectRatio = 0;
 

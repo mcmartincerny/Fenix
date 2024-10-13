@@ -1,24 +1,26 @@
 import { Vector3Like } from "three";
 import { BetterObject3D } from "./BetterObject3D";
+import { ItemName, ItemType } from "../inventory/Inventory";
 
 interface PickableObjectProps {
-  inventoryName: string;
+  inventoryItemName: ItemName;
+  inventoryItemType: ItemType;
   stackSize: number;
 }
 
 export class PickableObject extends BetterObject3D {
   static pickableObjects: Set<PickableObject> = new Set();
 
-  inventoryName: string;
+  inventoryItemName: ItemName;
   stackSize = 1;
   constructor(props: PickableObjectProps) {
     super();
-    this.inventoryName = props.inventoryName;
+    this.inventoryItemName = props.inventoryItemName;
     this.stackSize = props.stackSize;
     PickableObject.pickableObjects.add(this);
   }
 
-  dispose(removeFromParent?: boolean): void {
+  dispose(removeFromParent = true): void {
     super.dispose(removeFromParent);
     PickableObject.pickableObjects.delete(this);
   }

@@ -33,6 +33,7 @@ import {
   Vector3,
 } from "../helpers";
 import { PickableObject } from "./PickableObject";
+import { PersonInventory } from "../inventory/Inventory";
 
 const LEFT_LEG_X_OFFSET = 0.1;
 const ARM_Z_OFFSET = 0.05;
@@ -43,11 +44,22 @@ export interface StandardController {
     speed: number;
     jump: boolean;
   };
+  getActions(): {
+    pickUp: boolean;
+    drop: boolean;
+    primaryAction: boolean;
+    secondaryAction: boolean;
+    tertiaryAction: boolean;
+    switchItemUp: boolean;
+    switchItemDown: boolean;
+    switchToItem: number | null;
+  };
   dispose(): void;
 }
 
 export class Person extends BetterObject3D {
   public controller: StandardController;
+  public inventory: PersonInventory;
   public torso: Torso;
   private head: Head;
   private leftArm: Arm;
@@ -64,6 +76,28 @@ export class Person extends BetterObject3D {
   constructor(controller?: StandardController) {
     super();
     this.controller = controller || new StillController();
+    this.inventory = new PersonInventory(
+      4,
+      16,
+      () => {
+        const rot = this.controller.getMovement().rotation;
+        return new Vector3(this.torso.rigidBody!.translation()).add(new Vector3(rot.x, rot.y, 1).multiplyScalar(0.5));
+      },
+      () => {
+        const rot = this.controller.getMovement().rotation;
+        return new Vector3(this.torso.rigidBody!.linvel()).add(new Vector3(rot.x, rot.y, 1).multiplyScalar(4));
+      }
+    );
+    this.inventory.toolBarInventory.addInventoryChangedListener((inv, changedIdxes) => {
+      console.log("Inventory changed", changedIdxes);
+      const items: string[] = [];
+      inv.items.forEach((item, idx) => {
+        if (item) {
+          items.push(item.name + " " + idx);
+        }
+      });
+      console.log("Items", items.join(", "));
+    });
     this.torso = new Torso();
     this.head = new Head();
     this.leftArm = new Arm();
@@ -368,20 +402,41 @@ export class Person extends BetterObject3D {
     const modifiedPulse = pulse * rotateWhileStandingModifier;
 
     tBody.applyTorqueImpulse(new RAPIER.Vector3(0, 0, modifiedPulse), true);
-  }
 
-  lastSelectedObject: BetterObject3D | null = null;
+    // picking up item
+    const actions = this.controller.getActions();
+    if (actions.pickUp && !this.lastActionPickup && this.lastSelectedPickableObject) {
+      this.inventory.pickupObjectIntoInventory(this.lastSelectedPickableObject);
+      this.lastSelectedPickableObject = null;
+    }
+    if (actions.drop) {
+      this.inventory.dropSingleSelectedToolBarItem();
+    }
+    if (actions.switchItemUp) {
+      this.inventory.selectPreviousToolBarItem();
+    }
+    if (actions.switchItemDown) {
+      this.inventory.selectNextToolBarItem();
+    }
+    if (actions.switchToItem !== null) {
+      this.inventory.selectToolBarItem(actions.switchToItem);
+    }
+    this.lastActionPickup = actions.pickUp;
+  }
+  lastActionPickup = false;
+
+  lastSelectedPickableObject: PickableObject | null = null;
   after30Updates(): void {
     const obj = PickableObject.getNearestPickable(this.torso.rigidBody!.translation());
-    if (this.lastSelectedObject === obj) {
+    if (this.lastSelectedPickableObject === obj) {
       return;
     }
-    if (this.lastSelectedObject) {
-      outlinePass!.selectedObjects = outlinePass!.selectedObjects.filter((o) => o !== this.lastSelectedObject);
-      this.lastSelectedObject = null;
+    if (this.lastSelectedPickableObject) {
+      outlinePass!.selectedObjects = outlinePass!.selectedObjects.filter((o) => o !== this.lastSelectedPickableObject);
+      this.lastSelectedPickableObject = null;
     }
     if (obj) {
-      this.lastSelectedObject = obj;
+      this.lastSelectedPickableObject = obj;
       outlinePass!.selectedObjects.push(obj);
     }
   }
@@ -613,6 +668,18 @@ class StillController implements StandardController {
       rotation: { x: 0, y: -1 },
       speed: 0,
       jump: false,
+    };
+  }
+  getActions() {
+    return {
+      pickUp: false,
+      drop: false,
+      primaryAction: false,
+      secondaryAction: false,
+      tertiaryAction: false,
+      switchItemUp: false,
+      switchItemDown: false,
+      switchToItem: null,
     };
   }
   dispose(): void {

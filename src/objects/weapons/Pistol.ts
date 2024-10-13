@@ -1,23 +1,17 @@
-import { BoxGeometry, CylinderGeometry, Mesh, MeshStandardMaterial } from "three";
+import { BoxGeometry, CylinderGeometry, Mesh, MeshStandardMaterial, Vector3Like } from "three";
 import { PipeGeometry } from "../Shapes";
 import { CaliberType, createRotateAnimation, createStandardRecoilAnimation, Weapon, weaponMaterials, WeaponProps } from "./Weapon";
 import * as BufferGeometryUtils from "three/addons/utils/BufferGeometryUtils.js";
 import { degToRad } from "three/src/math/MathUtils.js";
 import { gui, world } from "../../Globals";
 import RAPIER from "@dimforge/rapier3d-compat";
-
-interface PistolProps {
-  position: { x: number; y: number; z: number };
-}
+import { ItemName } from "../../inventory/Inventory";
 
 export class Pistol extends Weapon {
-  shootDelayMs = 100;
-  shotInProgress = false;
-  shotAtMs = 0;
-  constructor(props: PistolProps) {
+  constructor(position: Vector3Like) {
     super({
-      name: "Pistol 9mm",
-      position: props.position,
+      name: ItemName.Pistol9mm,
+      position: position,
       caliber: CaliberType["9mm"],
       barrelLength: 0.3,
       magazineCapacity: 15,

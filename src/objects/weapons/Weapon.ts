@@ -3,9 +3,10 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { gui, world } from "../../Globals";
 import { PickableObject } from "../PickableObject";
 import { Vector3 } from "../../helpers";
+import { ItemName, ItemType } from "../../inventory/Inventory";
 
 export interface WeaponProps {
-  name: string;
+  name: ItemName;
   position: Vector3Like;
   barrelLength: number;
   caliber: CaliberType;
@@ -23,7 +24,7 @@ export class Weapon extends PickableObject {
   shotAtMs = 0;
   shootingAnimations: ReturnType<Weapon["createAnimations"]> = [];
   constructor(props: WeaponProps) {
-    super({ inventoryName: props.name, stackSize: 1 });
+    super({ inventoryItemName: props.name, inventoryItemType: ItemType.Weapon, stackSize: 1 });
     this.weaponProperties = props;
     const { position } = props;
     this.rigidBody = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(position.x, position.y, position.z));

@@ -5,88 +5,129 @@ import { StandardController } from "../objects/Person";
 const WALK_SPEED = 0.7;
 const RUN_SPEED = 2.5;
 
-export class PlayerTopDownController implements StandardController {
+class PlayerController implements StandardController {
+  pressedKeys: Set<string> = new Set();
+  pressedMouseButtons: Set<number> = new Set();
+  scrollDelta = 0;
   rotation = { x: 0, y: -1 };
 
-  pressedKeys: Set<string> = new Set();
+  constructor() {
+    document.addEventListener("keydown", this.keydown);
+    document.addEventListener("keyup", this.keyup);
+    document.addEventListener("mousedown", this.mousedown);
+    document.addEventListener("mouseup", this.mouseup);
+    document.addEventListener("wheel", this.onScroll);
+    PlayerController.lastInstance?.dispose();
+    PlayerController.lastInstance = this;
+  }
+  static lastInstance: PlayerController | null = null;
 
   keydown = (event: KeyboardEvent) => {
-    this.pressedKeys.add(event.key.toLowerCase());
+    this.pressedKeys.add(event.code);
     if (event.ctrlKey) {
       event.preventDefault();
     }
   };
 
   keyup = (event: KeyboardEvent) => {
-    this.pressedKeys.delete(event.key.toLowerCase());
+    this.pressedKeys.delete(event.code);
   };
 
-  constructor() {
-    document.addEventListener("keydown", this.keydown);
-    document.addEventListener("keyup", this.keyup);
-    PlayerTopDownController.lastInstance?.dispose();
-    PlayerTopDownController.lastInstance = this;
-  }
-  static lastInstance: PlayerTopDownController | null = null;
+  mousedown = (event: MouseEvent) => {
+    this.pressedMouseButtons.add(event.button);
+  };
 
+  mouseup = (event: MouseEvent) => {
+    this.pressedMouseButtons.delete(event.button);
+  };
+
+  onScroll = (event: WheelEvent) => {
+    this.scrollDelta += event.deltaY;
+  };
+
+  getScroll(): -1 | 0 | 1 {
+    if (this.scrollDelta < 0) {
+      this.scrollDelta = 0;
+      return -1;
+    } else if (this.scrollDelta > 0) {
+      this.scrollDelta = 0;
+      return 1;
+    }
+    return 0;
+  }
+
+  dispose(): void {
+    document.removeEventListener("keydown", this.keydown);
+    document.removeEventListener("keyup", this.keyup);
+    document.removeEventListener("mousedown", this.mousedown);
+    document.removeEventListener("mouseup", this.mouseup);
+    document.removeEventListener("wheel", this.onScroll);
+  }
+
+  getMovement(): { direction: any; rotation: any; speed: number; jump: boolean } {
+    throw new Error("getMovement() must be implemented in subclasses");
+  }
+
+  getActions() {
+    const scroll = this.getScroll();
+    let digitKey: number | null = null;
+    this.pressedKeys.forEach((key) => {
+      if (key.startsWith("Digit")) {
+        digitKey = parseInt(key[5]);
+      }
+    });
+
+    return {
+      pickUp: this.pressedKeys.has("KeyE"),
+      drop: this.pressedKeys.has("KeyG"),
+      primaryAction: this.pressedMouseButtons.has(0),
+      tertiaryAction: this.pressedMouseButtons.has(1),
+      secondaryAction: this.pressedMouseButtons.has(2),
+      switchItemUp: scroll === -1,
+      switchItemDown: scroll === 1,
+      switchToItem: digitKey ? digitKey - 1 : null,
+    };
+  }
+}
+
+export class PlayerTopDownController extends PlayerController {
   getMovement() {
     const direction = { x: 0, y: 0 };
     let speed = 0;
-    if (this.pressedKeys.has("w")) {
+    if (this.pressedKeys.has("KeyW")) {
       direction.y += 1;
     }
-    if (this.pressedKeys.has("s")) {
+    if (this.pressedKeys.has("KeyS")) {
       direction.y -= 1;
     }
-    if (this.pressedKeys.has("a")) {
+    if (this.pressedKeys.has("KeyA")) {
       direction.x -= 1;
     }
-    if (this.pressedKeys.has("d")) {
+    if (this.pressedKeys.has("KeyD")) {
       direction.x += 1;
     }
     if (Math.abs(direction.x) + Math.abs(direction.y) > 0) {
       this.rotation = { ...direction };
-      speed = this.pressedKeys.has("shift") ? RUN_SPEED : WALK_SPEED;
+      speed = this.pressedKeys.has("ShiftLeft") ? RUN_SPEED : WALK_SPEED;
     }
     if (Math.abs(direction.x) + Math.abs(direction.y) > 1) {
       direction.x /= Math.sqrt(2);
       direction.y /= Math.sqrt(2);
     }
 
-    return { direction, rotation: this.rotation, speed, jump: this.pressedKeys.has(" ") };
-  }
-
-  dispose(): void {
-    document.removeEventListener("keydown", this.keydown);
-    document.removeEventListener("keyup", this.keyup);
+    return { direction, rotation: this.rotation, speed, jump: this.pressedKeys.has("Space") };
   }
 }
 
-export class PlayerThirdPersonController implements StandardController {
-  pressedKeys: Set<string> = new Set();
+export class PlayerThirdPersonController extends PlayerController {
   playerObject: BetterObject3D;
   camera: PerspectiveCamera;
 
-  keydown = (event: KeyboardEvent) => {
-    this.pressedKeys.add(event.key.toLowerCase());
-    if (event.ctrlKey) {
-      event.preventDefault();
-    }
-  };
-
-  keyup = (event: KeyboardEvent) => {
-    this.pressedKeys.delete(event.key.toLowerCase());
-  };
-
   constructor(playerObject: BetterObject3D, camera: PerspectiveCamera) {
+    super();
     this.playerObject = playerObject;
     this.camera = camera;
-    document.addEventListener("keydown", this.keydown);
-    document.addEventListener("keyup", this.keyup);
-    PlayerThirdPersonController.lastInstance?.dispose();
-    PlayerThirdPersonController.lastInstance = this;
   }
-  static lastInstance: PlayerThirdPersonController | null = null;
 
   getMovement() {
     // get rotation based on the camera rotation
@@ -102,34 +143,28 @@ export class PlayerThirdPersonController implements StandardController {
     const direction = new Vector2(0, 0);
     let speed = 0;
 
-    if (this.pressedKeys.has("w")) {
+    if (this.pressedKeys.has("KeyW")) {
       direction.add(rotationVect); // Move forward in the direction the camera is facing
     }
-    if (this.pressedKeys.has("s")) {
+    if (this.pressedKeys.has("KeyS")) {
       direction.sub(rotationVect); // Move backward in the opposite direction
     }
-    if (this.pressedKeys.has("a")) {
+    if (this.pressedKeys.has("KeyA")) {
       direction.sub(rightVect); // Move left (strafe left)
     }
-    if (this.pressedKeys.has("d")) {
+    if (this.pressedKeys.has("KeyD")) {
       direction.add(rightVect); // Move right (strafe right)
     }
 
     if (direction.length() > 0) {
-      speed = this.pressedKeys.has("shift") ? RUN_SPEED : WALK_SPEED;
+      speed = this.pressedKeys.has("ShiftLeft") ? RUN_SPEED : WALK_SPEED;
       direction.normalize(); // Normalize direction to maintain consistent speed
 
-      if (this.pressedKeys.has("shift")) {
+      if (this.pressedKeys.has("ShiftLeft")) {
         // If running, rotate the player to face the direction they are moving
         rotation = direction;
       }
     }
-
-    return { direction, rotation, speed, jump: this.pressedKeys.has(" ") };
-  }
-
-  dispose(): void {
-    document.removeEventListener("keydown", this.keydown);
-    document.removeEventListener("keyup", this.keyup);
+    return { direction, rotation, speed, jump: this.pressedKeys.has("Space") };
   }
 }
