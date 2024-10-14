@@ -10,6 +10,7 @@ class PlayerController implements StandardController {
   pressedMouseButtons: Set<number> = new Set();
   scrollDelta = 0;
   rotation = { x: 0, y: -1 };
+  gPressedAt = 0;
 
   constructor() {
     document.addEventListener("keydown", this.keydown);
@@ -23,6 +24,9 @@ class PlayerController implements StandardController {
   static lastInstance: PlayerController | null = null;
 
   keydown = (event: KeyboardEvent) => {
+    if (event.code === "KeyG" && !this.pressedKeys.has("KeyG")) {
+      this.gPressedAt = Date.now();
+    }
     this.pressedKeys.add(event.code);
     if (event.ctrlKey) {
       event.preventDefault();
@@ -79,7 +83,7 @@ class PlayerController implements StandardController {
 
     return {
       pickUp: this.pressedKeys.has("KeyE"),
-      drop: this.pressedKeys.has("KeyG"),
+      drop: this.pressedKeys.has("KeyG") ? Math.min((Date.now() - this.gPressedAt) / 1000, 1) : 0,
       primaryAction: this.pressedMouseButtons.has(0),
       tertiaryAction: this.pressedMouseButtons.has(1),
       secondaryAction: this.pressedMouseButtons.has(2),

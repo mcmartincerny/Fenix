@@ -62,9 +62,7 @@ export class ThirdPersonCamera extends BetterObject3D {
 
   afterUpdate() {
     this.turnCameraBasedOnMouse();
-    const idealCameraPosition = this.getTargetPosition()
-      .add(this.getTargetVelocity().multiplyScalar(-this.velocityMultiplier))
-      .setZ(this.getTargetPosition().z + this.zOffset);
+    const idealCameraPosition = this.getTargetPosition().setZ(this.getTargetPosition().z + this.zOffset);
     const offsetVector = new Vector3(0, 0, this.behindOffset);
     offsetVector.applyQuaternion(this.camera.quaternion);
     idealCameraPosition.add(offsetVector);

@@ -46,7 +46,7 @@ export interface StandardController {
   };
   getActions(): {
     pickUp: boolean;
-    drop: boolean;
+    drop: number;
     primaryAction: boolean;
     secondaryAction: boolean;
     tertiaryAction: boolean;
@@ -85,19 +85,19 @@ export class Person extends BetterObject3D {
       },
       () => {
         const rot = this.controller.getMovement().rotation;
-        return new Vector3(this.torso.rigidBody!.linvel()).add(new Vector3(rot.x, rot.y, 1).multiplyScalar(4));
+        return new Vector3(this.torso.rigidBody!.linvel()).add(new Vector3(rot.x, rot.y, 0).multiplyScalar(1 + this.dropForce * 10).setZ(1));
       }
     );
-    this.inventory.toolBarInventory.addInventoryChangedListener((inv, changedIdxes) => {
-      console.log("Inventory changed", changedIdxes);
-      const items: string[] = [];
-      inv.items.forEach((item, idx) => {
-        if (item) {
-          items.push(item.name + " " + idx);
-        }
-      });
-      console.log("Items", items.join(", "));
-    });
+    // this.inventory.toolBarInventory.addInventoryChangedListener((inv, changedIdxes) => {
+    //   console.log("Inventory changed", changedIdxes);
+    //   const items: string[] = [];
+    //   inv.items.forEach((item, idx) => {
+    //     if (item) {
+    //       items.push(item.name + " " + idx);
+    //     }
+    //   });
+    //   console.log("Items", items.join(", "));
+    // });
     this.torso = new Torso();
     this.head = new Head();
     this.leftArm = new Arm();
@@ -223,7 +223,7 @@ export class Person extends BetterObject3D {
         const rayPos = new Vector3(torsoPosition).add(new Vector3(torsoLinVel).multiplyScalar(ray));
         debugRigidBody(rayPos, "rayPos", 0.1);
         // position the feet on the ray position
-        const rollFeetKp = 0.0003;
+        const rollFeetKp = 0.0002;
         const leftFootPos = new Vector3(this.leftFoot.rigidBody!.translation());
         const rightFootPos = new Vector3(this.rightFoot.rigidBody!.translation());
         const leftFootToRay = new Vector3(rayPos).sub(leftFootPos);
@@ -236,6 +236,7 @@ export class Person extends BetterObject3D {
         const rightFootToRayForce = rightFootToRayNormalized.multiplyScalar(rightFootToRayLen * rollFeetKp);
         this.leftFoot.rigidBody!.applyImpulse(leftFootToRayForce, true);
         this.rightFoot.rigidBody!.applyImpulse(rightFootToRayForce, true);
+        this.torso.rigidBody!.applyImpulse(leftFootToRayForce.clone().add(rightFootToRayForce).multiplyScalar(-1), true);
 
         const torsoXYVelLength = new Vector3(torsoLinVel.x, torsoLinVel.y, 0).length();
         const minTorsoXYVelLengthForWallBounce = 0.5;
@@ -247,8 +248,8 @@ export class Person extends BetterObject3D {
           const rightFeetRay = castRay(rFeetPos, new Vector3(tBody.linvel().x, tBody.linvel().y, 0), maxFeetDistance);
           if (leftFeetRay || rightFeetRay) {
             this.lastJump = Date.now();
-            const bounceForce = 0.3;
-            const jumpForce = 0.4;
+            const bounceForce = 0.4;
+            const jumpForce = 0.5;
             const bounceForceVector = torsoLinVel.clone().setZ(0).normalize().multiplyScalar(-bounceForce).setZ(jumpForce);
             // stop the torso movement before applying the bounce force
             tBody.setLinvel(new Vector3(0, 0, 0), true);
@@ -262,7 +263,7 @@ export class Person extends BetterObject3D {
               tBody.setAngularDamping(previousAngularDamping);
               this.leftFoot.rigidBody!.setAngularDamping(previousAngularDamping);
               this.rightFoot.rigidBody!.setAngularDamping(previousAngularDamping);
-            }, 300);
+            }, 100);
           }
         }
       }
@@ -409,8 +410,15 @@ export class Person extends BetterObject3D {
       this.inventory.pickupObjectIntoInventory(this.lastSelectedPickableObject);
       this.lastSelectedPickableObject = null;
     }
-    if (actions.drop) {
-      this.inventory.dropSingleSelectedToolBarItem();
+    if (!actions.drop) {
+      if (this.lastActionDrop) {
+        this.lastActionDrop = false;
+        this.inventory.dropSingleSelectedToolBarItem();
+        this.dropForce = 0;
+      }
+    } else {
+      this.lastActionDrop = true;
+      this.dropForce = actions.drop;
     }
     if (actions.switchItemUp) {
       this.inventory.selectPreviousToolBarItem();
@@ -424,6 +432,8 @@ export class Person extends BetterObject3D {
     this.lastActionPickup = actions.pickUp;
   }
   lastActionPickup = false;
+  lastActionDrop = false;
+  dropForce = 0;
 
   lastSelectedPickableObject: PickableObject | null = null;
   after30Updates(): void {
@@ -673,7 +683,7 @@ class StillController implements StandardController {
   getActions() {
     return {
       pickUp: false,
-      drop: false,
+      drop: 0,
       primaryAction: false,
       secondaryAction: false,
       tertiaryAction: false,
